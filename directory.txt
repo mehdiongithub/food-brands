@@ -1,0 +1,67 @@
+foodscope/
+│
+├── admin/
+│   ├── dashboard.php
+│   ├── login.php
+│   ├── logout.php
+│   ├── users/
+│   ├── countries/
+│   ├── brands/
+│   ├── categories/
+│   ├── products/
+│   ├── offers/
+│   ├── blogs/
+│   ├── testimonials/
+│   ├── faqs/
+│   ├── settings/
+│   └── includes/
+│
+├── api/
+│   ├── brands/brands.php
+│   ├── products/products.php
+│   ├── countries/countries.php
+│   └── 
+│
+├── assets/
+│   ├── css/
+│   ├── js/
+│   ├── img/
+│   │   ├── brands/
+│   │   ├── categories/
+│   │   ├── products/
+│   │   ├── blogs/
+│   │   └── users/
+│   └── uploads/
+│
+├── config/
+│   ├── database.php
+│   ├── config.php
+│   ├── auth.php
+│   └── functions.php
+│
+├── includes/
+│   ├── header.php
+│   ├── footer.php
+│   ├── navbar.php
+│   ├── sidebar.php
+│   └── pagination.php
+│
+├── pages/
+│   ├── home.php
+│   ├── brand.php
+│   ├── category.php
+│   ├── product.php
+│   ├── offer.php
+│   ├── blog.php
+│   ├── contact.php
+│   └── search.php
+│
+├── routes/
+│
+├── storage/
+│
+├── vendor/
+│
+├── .htaccess
+├── index.php
+└── sitemap.xml

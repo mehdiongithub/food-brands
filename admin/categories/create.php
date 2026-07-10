@@ -1,0 +1,222 @@
+<?php
+require_once __DIR__ . "/../../config/bootstrap.php";
+requireLogin();
+?>
+
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FoodScope — Add Category</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
+    <link rel="stylesheet" href="../../assets/css/admin/style.css">
+    <style>
+        #descriptionEditor {
+            background: var(--surface, #fff);
+            min-height: 160px;
+            border-radius: 0 0 var(--r-md, 8px) var(--r-md, 8px);
+        }
+        .ql-toolbar.ql-snow {
+            border-radius: var(--r-md, 8px) var(--r-md, 8px) 0 0;
+            background: var(--bg, #f8f8f8);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="sb-bd" id="sbBd" onclick="closeMS()"></div>
+
+    <?php include '../includes/sidebar.php'; ?>
+    <?php include '../includes/header.php'; ?>
+
+    <div id="main">
+        <div class="pg-content" id="pgC">
+
+            <div class="pg-head" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+                <div>
+                    <h1 class="pg-title">Add Category</h1>
+                    <p class="pg-desc">Add a new supported category</p>
+                </div>
+                <a href="index.php" class="bo text-decoration-none">
+                    <i class="fas fa-arrow-left"></i> Back to Categories
+                </a>
+            </div>
+
+            <div class="cd">
+                <div class="cd-b p-4">
+
+                    <form id="addCategoryForm" enctype="multipart/form-data">
+
+                        <div class="row g-3">
+
+                            <div class="col-md-12">
+                                <label class="fl">Category Name <span style="color:red">*</span></label>
+                                <input type="text" class="fi" name="name" id="name" required maxlength="100" placeholder="Enter Category">
+                                <div class="invalid-feedback" id="err_name"></div>
+                            </div>
+
+                            <div class="col-md-12">
+                                <label class="fl">Description</label>
+                                <div id="descriptionEditor"></div>
+                                <!-- Hidden field that actually gets submitted — Quill writes HTML into this -->
+                                <textarea name="description" id="description" style="display:none;"></textarea>
+                                <div class="invalid-feedback" id="err_description"></div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="fl">Sort Order</label>
+                                <input type="number" class="fi" name="sort_order" id="sort_order" min="0" value="0" placeholder="0">
+                                <div class="invalid-feedback" id="err_sort_order"></div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="fl">Status</label>
+                                <select class="fss" name="status" id="status">
+                                    <option value="1" selected>Active</option>
+                                    <option value="0">Inactive</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="fl">Image</label>
+                                <input type="file" class="fi" name="image" id="image" accept="image/png, image/jpeg, image/jpg, image/webp">
+                                <small style="color:var(--muted);font-size:.72rem;">Optional. JPG, PNG or WEBP. Max 2MB.</small>
+                                <div class="invalid-feedback" id="err_image"></div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="fl">Image Preview</label>
+                                <div>
+                                    <img id="imagePreview" src="" alt="Preview"
+                                         style="display:none;width:70px;height:70px;object-fit:cover;border-radius:8px;border:1px solid var(--border);">
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div class="mo-f" style="padding:0;margin-top:22px;border:none;display:flex;gap:10px;">
+                            <button type="button" class="bo" onclick="window.location.href='index.php'">Cancel</button>
+                            <button type="submit" class="ba" id="submitBtn">
+                                <i class="fas fa-save"></i> Create Category
+                            </button>
+                        </div>
+
+                    </form>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="tw2" id="tw2"></div>
+    <div id="formAlert" style="display:none;" class="alert" role="alert"></div>
+
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="../../assets/js/admin/sidebar.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+    <script>
+
+                function toast(m, t) {
+            t = t || 'suc';
+            var ic = { suc: 'fa-check-circle', err: 'fa-times-circle', wrn: 'fa-exclamation-triangle', inf: 'fa-info-circle' };
+            var $t = $('<div class="ti2 ' + t + '"><i class="fas ' + ic[t] + '"></i><span>' + m + '</span></div>');
+            $('#tw2').append($t);
+            setTimeout(function () {
+                $t.fadeOut(250, function () { $(this).remove(); });
+            }, 2800);
+        }
+    // --- Initialize Quill rich text editor ---
+    var quill = new Quill('#descriptionEditor', {
+        theme: 'snow',
+        placeholder: 'Enter category description...',
+        modules: {
+            toolbar: [
+                [{ header: [1, 2, 3, false] }],
+                ['bold', 'italic', 'underline', 'strike'],
+                [{ list: 'ordered' }, { list: 'bullet' }],
+                ['link'],
+                ['clean']
+            ]
+        }
+    });
+
+    // Sync Quill's HTML content into the hidden textarea before submit
+    quill.on('text-change', function () {
+        $('#description').val(quill.root.innerHTML);
+    });
+
+    // --- Live image preview ---
+    $('#image').on('change', function () {
+        var file = this.files[0];
+        if (file) {
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                $('#imagePreview').attr('src', e.target.result).show();
+            };
+            reader.readAsDataURL(file);
+        } else {
+            $('#imagePreview').hide();
+        }
+    });
+
+    $('#addCategoryForm').on('submit', function (e) {
+        e.preventDefault();
+
+        $('.invalid-feedback').text('');
+
+        // Make sure the latest Quill content is synced (covers case where
+        // user never triggered a text-change event, e.g. left it empty)
+        $('#description').val(quill.root.innerHTML);
+
+        // Treat Quill's "empty" placeholder markup as truly empty
+        var descText = quill.getText().trim();
+        if (descText === '') {
+            $('#description').val('');
+        }
+
+        var formData = new FormData(this);
+        var $btn = $('#submitBtn');
+        $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Saving...');
+
+        $.ajax({
+            url: '../../api/categories/add-category.php',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            dataType: 'json'
+        })
+        .done(function (res) {
+            if (res.success) {
+                toast(res.message || 'Category created successfully', 'suc');
+                setTimeout(function () {
+                    window.location.href = 'index.php';
+                }, 900);
+            } else {
+                if (res.errors) {
+                    $.each(res.errors, function (field, msg) {
+                        $('#err_' + field).text(msg);
+                    });
+                }
+                toast(res.message || 'Please fix the errors below', 'err');
+            }
+        })
+        .fail(function () {
+            toast('Something went wrong. Please try again.', 'err');
+        })
+        .always(function () {
+            $btn.prop('disabled', false).html('<i class="fas fa-save"></i> Create Category');
+        });
+    });
+    </script>
+</body>
+
+</html>
