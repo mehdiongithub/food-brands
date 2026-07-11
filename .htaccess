@@ -1,0 +1,49 @@
+RewriteEngine On
+RewriteBase /food-brands/
+
+# Serve real files and directories as-is
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Home page
+RewriteRule ^$ index.php [L]
+
+# Brands listing
+RewriteRule ^brands/?$ brands.php [L]
+
+# Brand detail: /brand/crsa
+RewriteRule ^brand/([^/]+)/?$ brand.php?slug=$1 [L,QSA]
+
+# Product detail: /product/pizza
+RewriteRule ^product/([^/]+)/?$ product.php?slug=$1 [L,QSA]
+
+# Categories listing
+RewriteRule ^categories/?$ categories.php [L]
+
+# Category detail: /category/pakistan
+RewriteRule ^category/([^/]+)/?$ category.php?slug=$1 [L,QSA]
+
+# Offers
+RewriteRule ^offers/?$ offers.php [L]
+
+# FAQ
+RewriteRule ^faq/?$ faq.php [L]
+
+# Contact
+RewriteRule ^contact/?$ contact.php [L]
+
+# About
+RewriteRule ^about/?$ about.php [L]
+
+# Search
+RewriteRule ^search/?$ search.php [L,QSA]
+
+# Blog listing
+RewriteRule ^blog/?$ blog.php [L]
+
+# Blog detail: /blog/some-slug
+RewriteRule ^blog/([^/]+)/?$ blog-detail.php?slug=$1 [L,QSA]
+
+# 404 - catch all unmatched routes
+RewriteRule ^(.*)$ 404.php [L]

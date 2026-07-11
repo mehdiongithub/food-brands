@@ -61,7 +61,7 @@ requireLogin();
                                 <div class="invalid-feedback" id="err_name"></div>
                             </div>
 
-                            <div class="col-md-12">
+                            <div class="col-md-12 mb-5">
                                 <label class="fl">Description</label>
                                 <div id="descriptionEditor"></div>
                                 <!-- Hidden field that actually gets submitted — Quill writes HTML into this -->
@@ -69,13 +69,13 @@ requireLogin();
                                 <div class="invalid-feedback" id="err_description"></div>
                             </div>
 
-                            <div class="col-md-6">
+                            <div class="col-md-6 mt-5">
                                 <label class="fl">Sort Order</label>
                                 <input type="number" class="fi" name="sort_order" id="sort_order" min="0" value="0" placeholder="0">
                                 <div class="invalid-feedback" id="err_sort_order"></div>
                             </div>
 
-                            <div class="col-md-6">
+                            <div class="col-md-6 mt-5">
                                 <label class="fl">Status</label>
                                 <select class="fss" name="status" id="status">
                                     <option value="1" selected>Active</option>

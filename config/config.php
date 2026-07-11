@@ -29,3 +29,4 @@ define('SITE_NAME', 'FoodScope');
 define('ADMIN_EMAIL', 'admin@foodscope.com');
 
 define('ENCRYPTION_KEY', 'change-this-to-a-long-random-secret-string-1234567890');
+
