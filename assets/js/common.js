@@ -80,7 +80,7 @@
     }
 
     // ============================================================
-    // 3. LOAD SETTINGS & COUNTRY DROPDOWN
+    // 3. LOAD SETTINGS
     // ============================================================
     function loadSettings() {
         $.getJSON(BASE_URL + '/api/site/settings.php', function (res) {
@@ -89,105 +89,17 @@
             window.AppSettings = res.settings;
             window.CurrentCountry = res.current_country;
             window.AllCountries = res.countries;
-
-            // Populate country dropdown in header
-            renderCountryDropdown(res.countries, res.current_country);
         }).fail(function () {
-            // Silent fail — dropdown just won't populate
             console.warn('Failed to load site settings.');
         });
     }
 
-    function renderCountryDropdown(countries, current) {
-        var $list = $('#country-dropdown-list');
-        if (!$list.length) return;
-
-        var html = '';
-        $.each(countries, function (i, c) {
-            var activeClass = c.is_current ? ' active' : '';
-            html += '<div class="country-dropdown-item' + activeClass + '" data-id="' + c.id + '">';
-            html += '  <img class="flag" src="' + c.flag_url + '" alt="' + c.name + '" style="width:28px;height:20px;object-fit:cover;border-radius:2px;">';
-            html += '  <span class="name">' + c.name + '</span>';
-            html += '  <span class="curr">' + c.currency_symbol + '</span>';
-            html += '</div>';
-        });
-
-        $list.html(html);
-
-        // Bind click events
-        $list.find('.country-dropdown-item').on('click', function () {
-            var id = $(this).data('id');
-            var name = $(this).find('.name').text();
-            var flag = $(this).find('.flag').attr('src');
-            changeCountry(id, name, flag);
-        });
-    }
-
-    // ============================================================
-    // 4. COUNTRY SELECTOR TOGGLE
-    // ============================================================
-    $(document).on('click', '#country-selector', function (e) {
-        e.stopPropagation();
-        $('#country-dropdown').toggleClass('show');
-        // Toggle chevron rotation
-        $(this).find('.chevron').toggleClass('rotate');
-    });
-
-    // Close dropdown when clicking outside
-    $(document).on('click', function (e) {
-        if (!$(e.target).closest('#country-selector').length) {
-            $('#country-dropdown').removeClass('show');
-            $('#country-selector .chevron').removeClass('rotate');
-        }
-    });
-
-    // ============================================================
-    // 5. CHANGE COUNTRY
-    // ============================================================
-    function changeCountry(id, name, flag) {
-        // Don't reload if same country
-        if (window.CurrentCountry && window.CurrentCountry.id === id) {
-            $('#country-dropdown').removeClass('show');
-            return;
-        }
-
-        // Show overlay animation
-        var $overlay = $('#country-overlay');
-        $overlay.find('.flag-icon').attr('src', flag).attr('alt', name);
-        $overlay.find('.country-name').text('Switching to ' + name + '...');
-        $overlay.addClass('active');
-
-        // Close dropdown immediately
-        $('#country-dropdown').removeClass('show');
-
-        // AJAX call to change session country
-        $.post(BASE_URL + '/api/site/change-country.php', { country_id: id }, function (res) {
-            if (res.success) {
-                // Update header selector display immediately
-                $('#country-selector .flag').attr('src', flag).attr('alt', name);
-                $('#country-selector .country-label').text(name);
-
-                // Update global state
-                window.CurrentCountry = res.country;
-
-                // Mark active in dropdown
-                $('#country-dropdown-list .country-dropdown-item').removeClass('active');
-                $('#country-dropdown-list .country-dropdown-item[data-id="' + id + '"]').addClass('active');
-
-                // Reload page after short delay for animation
-                setTimeout(function () {
-                    $overlay.removeClass('active');
-                    window.location.reload();
-                }, 1200);
-            } else {
-                $overlay.removeClass('active');
-                showToast(res.message || 'Failed to change country.', 'error');
-            }
-        }).fail(function () {
-            $overlay.removeClass('active');
-            showToast('Network error. Please try again.', 'error');
-        });
-    }
+    // NOTE: The header country selector is intentionally read-only.
+    // The visitor's country is auto-detected from their IP address
+    // (see config/database-config.php -> resolveVisitorCountryId())
+    // and rendered server-side in includes/header.php. There is no
+    // dropdown to switch countries and no client-side country-change
+    // logic here by design.
 
     // ============================================================
     // 6. HEADER SCROLL BEHAVIOR
@@ -822,3 +734,4 @@
     };
 
 })();
+

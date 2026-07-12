@@ -130,13 +130,14 @@ require_once __DIR__ . '/includes/header.php';
             <div class="row g-4">
 
                 <!-- ===== FILTER SIDEBAR ===== -->
-                <div class="col-lg-3">
+                <div class="col-lg-3 d-none d-lg-block">
                     <div class="filter-panel" id="brand-filter-panel">
 
-                        <!-- Search -->
                         <div class="filter-title">
-                            <span><i class="fa-solid fa-magnifying-glass" style="margin-right:0.5rem;color:var(--primary);"></i>Search Menu</span>
+                            <span><i class="fa-solid fa-sliders" style="margin-right:0.5rem;color:var(--primary);"></i>Filters</span>
                         </div>
+
+                        <!-- Search -->
                         <form id="brand-product-search-form" style="margin-bottom:1.25rem;">
                             <div style="position:relative;">
                                 <input type="text" id="brand-product-search" class="form-control" placeholder="Search products..." style="padding-left:2.5rem;font-size:0.88rem;">
@@ -147,8 +148,20 @@ require_once __DIR__ . '/includes/header.php';
                         <!-- Categories Filter -->
                         <div class="filter-group">
                             <div class="filter-group-title">Categories</div>
-                            <div id="brand-category-pills">
-                                <!-- Populated by brand-detail.js -->
+                            <div id="brand-filter-categories">
+                                <div style="padding:0.5rem 0;color:var(--muted);font-size:0.82rem;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
+                            </div>
+                        </div>
+
+                        <!-- Price Range Filter -->
+                        <div class="filter-group">
+                            <div class="filter-group-title">Price Range</div>
+                            <div class="price-range-wrap">
+                                <input type="range" id="brand-filter-price" min="0" max="999" step="1" value="999">
+                                <div class="price-range-labels">
+                                    <span id="brand-price-min-label">$0</span>
+                                    <span id="brand-price-max-label">$999</span>
+                                </div>
                             </div>
                         </div>
 
@@ -166,6 +179,14 @@ require_once __DIR__ . '/includes/header.php';
                             </select>
                         </div>
 
+                        <!-- Action Buttons -->
+                        <button id="btn-brand-apply-filters" class="filter-apply-btn">
+                            <i class="fa-solid fa-check" style="margin-right:0.4rem;"></i> Apply Filters
+                        </button>
+                        <button id="btn-brand-reset-filters" class="filter-reset-btn">
+                            <i class="fa-solid fa-rotate-left" style="margin-right:0.4rem;"></i> Reset All
+                        </button>
+
                     </div>
                 </div>
 
@@ -176,6 +197,12 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="toolbar" id="brand-products-toolbar" data-aos="fade-up">
                         <div class="toolbar-left">
                             <span class="toolbar-count" id="brand-products-count">Loading products...</span>
+                        </div>
+                        <div class="toolbar-right">
+                            <!-- Mobile filter button -->
+                            <button class="toolbar-view-btn d-lg-none" id="btn-mobile-brand-filter" title="Filter products">
+                                <i class="fa-solid fa-sliders"></i> Filters
+                            </button>
                         </div>
                     </div>
 
@@ -237,6 +264,63 @@ require_once __DIR__ . '/includes/header.php';
         </div>
     </section>
 
+</div>
+
+<!-- ============================================================
+     MOBILE FILTER PANEL (Slide-in)
+     ============================================================ -->
+<div id="brand-mobile-filter-overlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.5);display:none;"></div>
+<div id="brand-mobile-filter-panel" style="position:fixed;top:0;left:-320px;width:300px;height:100vh;z-index:9999;background:var(--surface);box-shadow:var(--shadow-xl);transition:left 0.3s ease;overflow-y:auto;padding:1.5rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
+        <span style="font-family:var(--font-display);font-size:1.15rem;font-weight:700;">Filters</span>
+        <button id="btn-close-brand-mobile-filter" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+
+    <!-- Categories Filter -->
+    <div class="filter-group">
+        <div class="filter-group-title">Categories</div>
+        <div id="brand-filter-categories-mobile">
+            <div style="padding:0.5rem 0;color:var(--muted);font-size:0.82rem;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
+        </div>
+    </div>
+
+    <!-- Price Range Filter -->
+    <div class="filter-group">
+        <div class="filter-group-title">Price Range</div>
+        <div class="price-range-wrap">
+            <input type="range" id="brand-filter-price-mobile" min="0" max="999" step="1" value="999">
+            <div class="price-range-labels">
+                <span id="brand-price-min-label-mobile">$0</span>
+                <span id="brand-price-max-label-mobile">$999</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sort -->
+    <div class="filter-group">
+        <div class="filter-group-title">Sort By</div>
+        <select id="brand-product-sort-mobile" class="form-select" style="font-size:0.88rem;">
+            <option value="newest">Newest First</option>
+            <option value="price_low">Price: Low to High</option>
+            <option value="price_high">Price: High to Low</option>
+            <option value="name_asc">Name A–Z</option>
+            <option value="name_desc">Name Z–A</option>
+            <option value="calories_low">Calories: Low to High</option>
+            <option value="calories_high">Calories: High to Low</option>
+        </select>
+    </div>
+
+    <!-- Action Buttons -->
+    <div style="margin-top:1.5rem;display:flex;flex-direction:column;gap:0.5rem;">
+        <button id="btn-brand-apply-filters-mobile" class="filter-apply-btn">
+            <i class="fa-solid fa-check" style="margin-right:0.4rem;"></i> Apply Filters
+        </button>
+        <button id="btn-brand-reset-filters-mobile" class="filter-reset-btn">
+            <i class="fa-solid fa-rotate-left" style="margin-right:0.4rem;"></i> Reset All
+        </button>
+    </div>
 </div>
 
 <?php

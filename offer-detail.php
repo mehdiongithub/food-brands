@@ -176,56 +176,7 @@ require_once __DIR__ . '/includes/header.php';
         </div>
     </section>
 
-    <!-- ===== ELIGIBLE PRODUCTS ===== -->
-    <section class="section-padding">
-        <div class="container">
-            <div class="section-header" data-aos="fade-up">
-                <div class="section-label">Eligible Menu</div>
-                <h2 class="section-title">Products With This Offer</h2>
-                <p class="section-desc">These products from the brand qualify for this discount in your selected country.</p>
-            </div>
-
-            <!-- Products Toolbar -->
-            <div class="toolbar" id="od-products-toolbar" data-aos="fade-up">
-                <div class="toolbar-left">
-                    <form id="od-product-search-form" style="position:relative;flex:1;max-width:300px;">
-                        <input type="text" id="od-product-search" class="form-control" placeholder="Search eligible products..." style="padding-left:2.5rem;font-size:0.88rem;border-radius:var(--radius-full);">
-                        <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:0.85rem;top:50%;transform:translateY(-50%);color:var(--muted);font-size:0.85rem;pointer-events:none;"></i>
-                    </form>
-                </div>
-                <div class="toolbar-right">
-                    <span class="toolbar-count" id="od-products-count">Loading products...</span>
-                    <select id="od-product-sort" class="toolbar-sort">
-                        <option value="newest">Newest First</option>
-                        <option value="price_low">Price: Low to High</option>
-                        <option value="price_high">Price: High to Low</option>
-                        <option value="name_asc">Name A–Z</option>
-                        <option value="name_desc">Name Z–A</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Products Skeleton -->
-            <div id="od-products-skeleton">
-                <div class="row g-3">
-                    <?php for ($i = 0; $i < 6; $i++): ?>
-                    <div class="col-6 col-md-4"><div class="skeleton skeleton-card"></div></div>
-                    <?php endfor; ?>
-                </div>
-            </div>
-
-            <!-- Products Grid -->
-            <div id="od-products-grid" class="row g-3" style="display:none;">
-                <!-- Populated by offer-detail.js via AJAX -->
-            </div>
-
-            <!-- Pagination -->
-            <div id="od-products-pagination" style="display:none;">
-                <!-- Populated by offer-detail.js via AJAX -->
-            </div>
-        </div>
-    </section>
-
+   
     <!-- ===== OTHER OFFERS FROM THIS BRAND ===== -->
     <section class="section-padding" id="od-other-offers-section" style="background:var(--bg-alt);">
         <div class="container">

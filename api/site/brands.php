@@ -214,7 +214,7 @@ try {
             ];
         }
 
-        // Get categories
+        // Get categories (with product counts for this brand, current country)
         $stmt = $db->prepare("
             SELECT c.id, c.name, c.slug
             FROM categories c
@@ -227,11 +227,21 @@ try {
 
         $categories = [];
         foreach ($catRows as $c) {
+            $stmtCnt = $db->prepare("
+                SELECT COUNT(DISTINCT p.id) AS total
+                FROM products p
+                INNER JOIN product_prices pp ON pp.product_id = p.id AND pp.country_id = ? AND pp.status = 1
+                WHERE p.brand_id = ? AND p.category_id = ? AND p.status = 1
+            ");
+            $stmtCnt->execute([$countryId, $brandId, (int) $c['id']]);
+            $catProductCount = (int) $stmtCnt->fetchColumn();
+
             $categories[] = [
-                'id'   => (int) $c['id'],
-                'name' => $c['name'],
-                'slug' => $c['slug'],
-                'url'  => BASE_URL . '/category/' . $c['slug']
+                'id'             => (int) $c['id'],
+                'name'           => $c['name'],
+                'slug'           => $c['slug'],
+                'product_count'  => $catProductCount,
+                'url'            => BASE_URL . '/category/' . $c['slug']
             ];
         }
 
@@ -294,15 +304,36 @@ try {
         $per_page = max(1, min(50, (int) getInput('per_page', 12)));
         $offset = ($page - 1) * $per_page;
 
-        // Filter by category if provided
-        $catFilter = getInput('category_id');
+        // Filter by category(ies) if provided — supports single category_id
+        // (legacy) or comma-separated category_ids for multi-select checkboxes.
         $catFilterSql = '';
         $catFilterParams = [];
 
-        if ($catFilter) {
-            $catFilter = (int) $catFilter;
-            $catFilterSql = " AND p.category_id = ? ";
-            $catFilterParams[] = $catFilter;
+        $catIdsInput = getInput('category_ids');
+        $catIds = [];
+        if ($catIdsInput) {
+            foreach (explode(',', $catIdsInput) as $cid) {
+                $cid = (int) trim($cid);
+                if ($cid > 0) $catIds[] = $cid;
+            }
+        } elseif (getInput('category_id')) {
+            $catIds[] = (int) getInput('category_id');
+        }
+
+        if (!empty($catIds)) {
+            $placeholders = implode(',', array_fill(0, count($catIds), '?'));
+            $catFilterSql = " AND p.category_id IN ($placeholders) ";
+            $catFilterParams = $catIds;
+        }
+
+        // Filter by max price (from the sidebar price range slider)
+        $priceSql = '';
+        $priceParams = [];
+
+        $maxPrice = getInput('max_price');
+        if ($maxPrice !== null && $maxPrice !== '') {
+            $priceSql = " AND COALESCE(pp.discount_price, pp.regular_price) <= ? ";
+            $priceParams[] = (float) $maxPrice;
         }
 
         // Search within brand products
@@ -326,20 +357,36 @@ try {
         if ($sort === 'calories_low') $sortSql = " ORDER BY p.calories ASC ";
         if ($sort === 'calories_high') $sortSql = " ORDER BY p.calories DESC ";
 
+        // Price bounds across ALL products for this brand (unfiltered) —
+        // used to size the price range slider on the frontend.
+        $stmt = $db->prepare("
+            SELECT MIN(COALESCE(pp.discount_price, pp.regular_price)) AS min_price,
+                   MAX(COALESCE(pp.discount_price, pp.regular_price)) AS max_price
+            FROM products p
+            INNER JOIN product_prices pp ON pp.product_id = p.id AND pp.country_id = ? AND pp.status = 1
+            WHERE p.brand_id = ? AND p.status = 1
+        ");
+        $stmt->execute([$countryId, $brandId]);
+        $boundsRow = $stmt->fetch();
+        $priceBounds = [
+            'min' => $boundsRow && $boundsRow['min_price'] !== null ? (float) $boundsRow['min_price'] : 0,
+            'max' => $boundsRow && $boundsRow['max_price'] !== null ? (float) $boundsRow['max_price'] : 0
+        ];
+
         // Count total products
-        $countParams = array_merge([$countryId, $brandId], $catFilterParams, $searchParams);
+        $countParams = array_merge([$countryId, $brandId], $catFilterParams, $priceParams, $searchParams);
         $stmt = $db->prepare("
             SELECT COUNT(DISTINCT p.id) AS total
             FROM products p
             INNER JOIN product_prices pp ON pp.product_id = p.id AND pp.country_id = ? AND pp.status = 1
             WHERE p.brand_id = ? AND p.status = 1
-            $catFilterSql $searchSql
+            $catFilterSql $priceSql $searchSql
         ");
         $stmt->execute($countParams);
         $totalProducts = (int) $stmt->fetchColumn();
 
         // Fetch products with prices
-        $fetchParams = array_merge([$countryId, $brandId], $catFilterParams, $searchParams, [$per_page, $offset]);
+        $fetchParams = array_merge([$countryId, $brandId], $catFilterParams, $priceParams, $searchParams, [$per_page, $offset]);
         $stmt = $db->prepare("
             SELECT p.id, p.name, p.slug, p.image, p.short_description, p.calories, p.featured,
                    p.category_id, c.name AS category_name, c.slug AS category_slug,
@@ -349,7 +396,7 @@ try {
             INNER JOIN product_prices pp ON pp.product_id = p.id AND pp.country_id = ? AND pp.status = 1
             LEFT JOIN categories c ON c.id = p.category_id
             WHERE p.brand_id = ? AND p.status = 1
-            $catFilterSql $searchSql
+            $catFilterSql $priceSql $searchSql
             $sortSql
             LIMIT ? OFFSET ?
         ");
@@ -432,6 +479,10 @@ try {
             'categories'     => $categories,
             'countries'      => $countries,
             'offers'         => $offers,
+            'price_bounds'   => [
+                'min' => (int) floor($priceBounds['min']),
+                'max' => (int) ceil($priceBounds['max'])
+            ],
             'products'       => $products,
             'pagination'     => [
                 'current_page' => $page,

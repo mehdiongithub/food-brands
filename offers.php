@@ -79,6 +79,18 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     </div>
 
+                    <!-- Discount Range Filter -->
+                    <div class="filter-group">
+                        <div class="filter-group-title">Minimum Discount</div>
+                        <div class="price-range-wrap">
+                            <input type="range" id="offer-filter-discount" min="0" max="100" step="1" value="0">
+                            <div class="price-range-labels">
+                                <span id="offer-discount-min-label">0%</span>
+                                <span id="offer-discount-max-label">0%+</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Sort -->
                     <div class="filter-group">
                         <div class="filter-group-title">Sort By</div>
@@ -171,6 +183,58 @@ require_once __DIR__ . '/includes/header.php';
         </div>
     </div>
 </section>
+
+<!-- ============================================================
+     MOBILE FILTER PANEL (Slide-in)
+     ============================================================ -->
+<div id="offer-mobile-filter-overlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.5);display:none;"></div>
+<div id="offer-mobile-filter-panel" style="position:fixed;top:0;left:-320px;width:300px;height:100vh;z-index:9999;background:var(--surface);box-shadow:var(--shadow-xl);transition:left 0.3s ease;overflow-y:auto;padding:1.5rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
+        <span style="font-family:var(--font-display);font-size:1.15rem;font-weight:700;">Filters</span>
+        <button id="btn-close-offer-mobile-filter" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+
+    <!-- Brands Filter -->
+    <div class="filter-group">
+        <div class="filter-group-title">Filter by Brand</div>
+        <div id="filter-brands-mobile">
+            <div style="padding:0.5rem 0;color:var(--muted);font-size:0.82rem;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
+        </div>
+    </div>
+
+    <!-- Discount Range Filter -->
+    <div class="filter-group">
+        <div class="filter-group-title">Minimum Discount</div>
+        <div class="price-range-wrap">
+            <input type="range" id="offer-filter-discount-mobile" min="0" max="100" step="1" value="0">
+            <div class="price-range-labels">
+                <span id="offer-discount-min-label-mobile">0%</span>
+                <span id="offer-discount-max-label-mobile">0%+</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Show Expired Toggle -->
+    <div class="filter-group">
+        <div class="filter-group-title">Display Options</div>
+        <label class="filter-option" style="cursor:pointer;padding:0.5rem 0.75rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-alt);transition:all 0.3s;">
+            <input type="checkbox" id="offer-expired-toggle-mobile" style="width:16px;height:16px;accent-color:var(--primary);cursor:pointer;flex-shrink:0;">
+            <span>Show expired offers</span>
+        </label>
+    </div>
+
+    <!-- Action Buttons -->
+    <div style="margin-top:1.5rem;display:flex;flex-direction:column;gap:0.5rem;">
+        <button id="btn-apply-offer-filters-mobile" class="filter-apply-btn">
+            <i class="fa-solid fa-check" style="margin-right:0.4rem;"></i> Apply Filters
+        </button>
+        <button id="btn-reset-offer-filters-mobile" class="filter-reset-btn">
+            <i class="fa-solid fa-rotate-left" style="margin-right:0.4rem;"></i> Reset All
+        </button>
+    </div>
+</div>
 
 <!-- ============================================================
      SEO CONTENT SECTION (Hidden visually, readable by crawlers)

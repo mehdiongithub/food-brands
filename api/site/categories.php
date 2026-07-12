@@ -126,15 +126,36 @@ try {
         $per_page = max(1, min(50, (int) getInput('per_page', 12)));
         $offset = ($page - 1) * $per_page;
 
-        // Filter by brand within this category
-        $brandFilter = getInput('brand_id');
+        // Filter by brand(s) within this category — supports single brand_id
+        // (legacy) or comma-separated brand_ids for multi-select checkboxes.
         $brandSql = '';
         $brandParams = [];
 
-        if ($brandFilter) {
-            $brandFilter = (int) $brandFilter;
-            $brandSql = " AND p.brand_id = ? ";
-            $brandParams[] = $brandFilter;
+        $brandIdsInput = getInput('brand_ids');
+        $brandIds = [];
+        if ($brandIdsInput) {
+            foreach (explode(',', $brandIdsInput) as $bid) {
+                $bid = (int) trim($bid);
+                if ($bid > 0) $brandIds[] = $bid;
+            }
+        } elseif (getInput('brand_id')) {
+            $brandIds[] = (int) getInput('brand_id');
+        }
+
+        if (!empty($brandIds)) {
+            $placeholders = implode(',', array_fill(0, count($brandIds), '?'));
+            $brandSql = " AND p.brand_id IN ($placeholders) ";
+            $brandParams = $brandIds;
+        }
+
+        // Filter by max price (from the sidebar price range slider)
+        $priceSql = '';
+        $priceParams = [];
+
+        $maxPrice = getInput('max_price');
+        if ($maxPrice !== null && $maxPrice !== '') {
+            $priceSql = " AND COALESCE(pp.discount_price, pp.regular_price) <= ? ";
+            $priceParams[] = (float) $maxPrice;
         }
 
         // Search within this category
@@ -158,20 +179,36 @@ try {
         if ($sort === 'calories_low') $sortSql = " ORDER BY p.calories ASC ";
         if ($sort === 'calories_high') $sortSql = " ORDER BY p.calories DESC ";
 
+        // Price bounds across ALL products in this category (unfiltered) —
+        // used to size the price range slider on the frontend.
+        $stmt = $db->prepare("
+            SELECT MIN(COALESCE(pp.discount_price, pp.regular_price)) AS min_price,
+                   MAX(COALESCE(pp.discount_price, pp.regular_price)) AS max_price
+            FROM products p
+            INNER JOIN product_prices pp ON pp.product_id = p.id AND pp.country_id = ? AND pp.status = 1
+            WHERE p.category_id = ? AND p.status = 1
+        ");
+        $stmt->execute([$countryId, $categoryId]);
+        $boundsRow = $stmt->fetch();
+        $priceBounds = [
+            'min' => $boundsRow && $boundsRow['min_price'] !== null ? (float) $boundsRow['min_price'] : 0,
+            'max' => $boundsRow && $boundsRow['max_price'] !== null ? (float) $boundsRow['max_price'] : 0
+        ];
+
         // Count total products
-        $countParams = array_merge([$countryId, $categoryId], $brandParams, $searchParams);
+        $countParams = array_merge([$countryId, $categoryId], $brandParams, $priceParams, $searchParams);
         $stmt = $db->prepare("
             SELECT COUNT(DISTINCT p.id) AS total
             FROM products p
             INNER JOIN product_prices pp ON pp.product_id = p.id AND pp.country_id = ? AND pp.status = 1
             WHERE p.category_id = ? AND p.status = 1
-            $brandSql $searchSql
+            $brandSql $priceSql $searchSql
         ");
         $stmt->execute($countParams);
         $totalProducts = (int) $stmt->fetchColumn();
 
         // Fetch products
-        $fetchParams = array_merge([$countryId, $categoryId], $brandParams, $searchParams, [$per_page, $offset]);
+        $fetchParams = array_merge([$countryId, $categoryId], $brandParams, $priceParams, $searchParams, [$per_page, $offset]);
         $stmt = $db->prepare("
             SELECT p.id, p.name, p.slug, p.image, p.short_description, p.calories, p.featured,
                    p.brand_id,
@@ -182,7 +219,7 @@ try {
             INNER JOIN product_prices pp ON pp.product_id = p.id AND pp.country_id = ? AND pp.status = 1
             INNER JOIN brands b ON b.id = p.brand_id AND b.status = 1
             WHERE p.category_id = ? AND p.status = 1
-            $brandSql $searchSql
+            $brandSql $priceSql $searchSql
             $sortSql
             LIMIT ? OFFSET ?
         ");
@@ -257,6 +294,10 @@ try {
                 'url'             => BASE_URL . '/category/' . $category['slug']
             ],
             'brands'         => $brands,
+            'price_bounds'   => [
+                'min' => (int) floor($priceBounds['min']),
+                'max' => (int) ceil($priceBounds['max'])
+            ],
             'products'       => $products,
             'pagination'     => [
                 'current_page' => $page,

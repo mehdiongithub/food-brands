@@ -5,6 +5,15 @@ if (!defined('BASE_PATH')) {
 require_once BASE_PATH . '/config/database-config.php';
 
 /**
+ * Escape a string for safe HTML output (used by category.php and any
+ * other page that needs to print dynamic text inside HTML).
+ */
+function escapeHtml($str) {
+    if ($str === null || $str === '') return '';
+    return htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
+}
+
+/**
  * Build absolute asset URL from relative database path
  */
 function asset_url($path) {

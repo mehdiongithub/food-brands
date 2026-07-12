@@ -1,7 +1,7 @@
 /**
  * brand-detail.js — Loaded ONLY on brand.php (Brand detail page)
- * Handles: brand info, gallery, countries, offers, category pills,
- * products grid with filters, pagination, URL params sync
+ * Handles: brand info, gallery, countries, offers, sidebar filters
+ * (category checkboxes + price range), products grid, pagination, URL sync
  */
 
 (function () {
@@ -16,14 +16,22 @@
     var state = {
         page: 1,
         per_page: 12,
-        category_id: null,
+        category_ids: [], // multi-select category checkboxes
+        max_price: null,  // price range slider
         search: '',
         sort: 'newest'
+    };
+
+    // Pending sidebar selections (only committed to `state` on Apply)
+    var pending = {
+        category_ids: [],
+        max_price: null
     };
 
     // DOM references
     var $productsGrid, $paginationWrap, $countEl, $skeletonWrap;
     var brandData = null; // Store full brand response
+    var priceBounds = { min: 0, max: 999 };
 
     $(document).ready(function () {
         $productsGrid = $('#brand-products-grid');
@@ -36,10 +44,7 @@
             return;
         }
 
-        // Read URL params for product filters
         readUrlParams();
-
-        // Load brand detail + first page of products
         loadBrandDetail();
     });
 
@@ -51,20 +56,23 @@
 
         if (params.get('page')) state.page = parseInt(params.get('page')) || 1;
         if (params.get('per_page')) state.per_page = parseInt(params.get('per_page')) || 12;
-        if (params.get('category_id')) state.category_id = parseInt(params.get('category_id')) || null;
+        if (params.get('category_ids')) {
+            state.category_ids = params.get('category_ids').split(',').map(function (v) { return parseInt(v); }).filter(Boolean);
+        }
+        if (params.get('max_price')) state.max_price = parseFloat(params.get('max_price'));
         if (params.get('search')) state.search = params.get('search');
         if (params.get('sort')) state.sort = params.get('sort');
 
-        // Populate search input
+        pending.category_ids = state.category_ids.slice();
+        pending.max_price = state.max_price;
+
         if (state.search) {
             var $input = $('#brand-product-search');
             if ($input.length) $input.val(state.search);
         }
 
-        // Populate sort dropdown
         if (state.sort) {
-            var $sort = $('#brand-product-sort');
-            if ($sort.length) $sort.val(state.sort);
+            $('#brand-product-sort, #brand-product-sort-mobile').val(state.sort);
         }
     }
 
@@ -78,7 +86,8 @@
 
         if (state.page > 1) params.set('page', state.page);
         if (state.per_page !== 12) params.set('per_page', state.per_page);
-        if (state.category_id) params.set('category_id', state.category_id);
+        if (state.category_ids.length) params.set('category_ids', state.category_ids.join(','));
+        if (state.max_price !== null && state.max_price !== undefined) params.set('max_price', state.max_price);
         if (state.search) params.set('search', state.search);
         if (state.sort !== 'newest') params.set('sort', state.sort);
 
@@ -88,13 +97,7 @@
         window.history.replaceState(state, '', newUrl);
     }
 
-    // ============================================================
-    // LOAD BRAND DETAIL
-    // ============================================================
-    function loadBrandDetail() {
-        // Show page-level skeleton
-        showPageSkeleton();
-
+    function buildRequestParams() {
         var params = {
             action: 'detail',
             slug: brandSlug,
@@ -103,10 +106,20 @@
             sort: state.sort
         };
 
-        if (state.category_id) params.category_id = state.category_id;
+        if (state.category_ids.length) params.category_ids = state.category_ids.join(',');
+        if (state.max_price !== null && state.max_price !== undefined) params.max_price = state.max_price;
         if (state.search) params.search = state.search;
 
-        $.getJSON(BASE_URL + '/api/site/brands.php', params, function (res) {
+        return params;
+    }
+
+    // ============================================================
+    // LOAD BRAND DETAIL
+    // ============================================================
+    function loadBrandDetail() {
+        showPageSkeleton();
+
+        $.getJSON(BASE_URL + '/api/site/brands.php', buildRequestParams(), function (res) {
             if (!res.success) {
                 if (res.message && res.message.indexOf('not found') !== -1) {
                     show404();
@@ -118,16 +131,20 @@
 
             brandData = res;
 
-            // Render all sections
+            if (res.price_bounds) {
+                priceBounds.min = res.price_bounds.min || 0;
+                priceBounds.max = res.price_bounds.max || 0;
+            }
+
             hidePageSkeleton();
             renderBrandHeader(res.brand);
             renderGallery(res.gallery);
             renderCountryFlags(res.countries);
-            renderCategories(res.categories);
+            renderCategoryFilters(res.categories);
+            renderPriceRange();
             renderOffers(res.offers);
             renderHistory(res.brand);
 
-            // Render products
             hideProductsSkeleton();
             if (res.products.length === 0) {
                 $productsGrid.html('');
@@ -140,10 +157,7 @@
             updateCount(res.pagination.total_items, res.pagination.current_page, res.pagination.per_page);
             updateUrlParams(false);
 
-            // Bind events after first load
             bindEvents();
-
-            // Refresh AOS for new content
             window.refreshAOS();
 
         }).fail(function () {
@@ -157,18 +171,7 @@
     function loadProductsOnly() {
         showProductsSkeleton();
 
-        var params = {
-            action: 'detail',
-            slug: brandSlug,
-            page: state.page,
-            per_page: state.per_page,
-            sort: state.sort
-        };
-
-        if (state.category_id) params.category_id = state.category_id;
-        if (state.search) params.search = state.search;
-
-        $.getJSON(BASE_URL + '/api/site/brands.php', params, function (res) {
+        $.getJSON(BASE_URL + '/api/site/brands.php', buildRequestParams(), function (res) {
             if (!res.success) {
                 showError('Failed to load products. Please try again.');
                 return;
@@ -197,7 +200,6 @@
     // RENDER BRAND HEADER
     // ============================================================
     function renderBrandHeader(brand) {
-        // Cover image
         var $cover = $('#brand-cover-img');
         if ($cover.length) {
             if (brand.cover_image) {
@@ -211,8 +213,7 @@
             }
         }
 
-        // Logo
-        var $logo = $('#brand-logo-img');
+        var $logo = $('#brand-logo-img img');
         if ($logo.length) {
             if (brand.logo) {
                 $logo.attr('src', brand.logo).attr('alt', escapeHtml(brand.name));
@@ -225,23 +226,19 @@
             }
         }
 
-        // Name
         var $name = $('#brand-name');
         if ($name.length) $name.text(brand.name);
 
-        // Description
         var $desc = $('#brand-description');
         if ($desc.length && brand.short_description) {
             $desc.html(brand.short_description);
         }
 
-        // Stats
         var $statProducts = $('#brand-stat-products');
         if ($statProducts.length) $statProducts.text(brand.total_products || 0);
 
         var $statCountries = $('#brand-stat-countries');
         if ($statCountries.length) {
-            // Count from countries array
             var countryCount = brandData ? brandData.countries.length : 0;
             $statCountries.text(countryCount);
         }
@@ -252,7 +249,6 @@
             $statCategories.text(catCount);
         }
 
-        // Website link
         var $website = $('#brand-website');
         if ($website.length && brand.website) {
             $website.attr('href', brand.website).show();
@@ -260,7 +256,6 @@
             $website.hide();
         }
 
-        // Founded year
         var $founded = $('#brand-founded');
         if ($founded.length && brand.founded_year) {
             $founded.text('Founded in ' + brand.founded_year).show();
@@ -319,38 +314,46 @@
     }
 
     // ============================================================
-    // RENDER CATEGORY PILLS (filter tabs)
+    // RENDER SIDEBAR — CATEGORY CHECKBOXES (desktop + mobile)
     // ============================================================
-    function renderCategories(categories) {
-        var $container = $('#brand-category-pills');
-        if (!$container.length) return;
+    function renderCategoryFilters(categories) {
+        var html = '';
 
         if (!categories || categories.length === 0) {
-            $container.hide();
-            return;
+            html = '<div style="font-size:0.82rem;color:var(--muted);">No categories available.</div>';
+        } else {
+            $.each(categories, function (i, cat) {
+                var checked = pending.category_ids.indexOf(cat.id) !== -1 ? 'checked' : '';
+                html += '<label class="filter-option">';
+                html += '  <input type="checkbox" name="category_id" value="' + cat.id + '" ' + checked + '>';
+                html += '  <span>' + escapeHtml(cat.name) + '</span>';
+                html += '  <span class="count">' + cat.product_count + '</span>';
+                html += '</label>';
+            });
         }
 
-        var html = '';
-        // "All" option
-        html += '<button class="fb-cat-pill brand-cat-pill' + (!state.category_id ? ' active' : '') + '" data-cat-id="">';
-        html += 'All Categories <span style="opacity:0.6;margin-left:0.25rem;">' + getTotalProductCount() + '</span>';
-        html += '</button>';
-
-        $.each(categories, function (i, cat) {
-            var isActive = (state.category_id && state.category_id === cat.id);
-            html += '<button class="fb-cat-pill brand-cat-pill m-2' + (isActive ? ' active' : '') + '" data-cat-id="' + cat.id + '">';
-            html += escapeHtml(cat.name);
-            html += '</button>';
-        });
-
-        $container.html(html).show();
+        $('#brand-filter-categories').html(html);
+        $('#brand-filter-categories-mobile').html(html);
     }
 
-    function getTotalProductCount() {
-        if (brandData && brandData.pagination) {
-            return brandData.pagination.total_items;
-        }
-        return 0;
+    // ============================================================
+    // RENDER SIDEBAR — PRICE RANGE SLIDER (desktop + mobile)
+    // ============================================================
+    function renderPriceRange() {
+        var min = priceBounds.min || 0;
+        var max = priceBounds.max > min ? priceBounds.max : min + 1;
+        var current = (pending.max_price !== null && pending.max_price !== undefined) ? pending.max_price : max;
+
+        $('#brand-filter-price, #brand-filter-price-mobile').attr('min', min).attr('max', max).val(current);
+        $('#brand-price-min-label, #brand-price-min-label-mobile').text(formatPrice(min));
+        $('#brand-price-max-label, #brand-price-max-label-mobile').text(formatPrice(current));
+    }
+
+    function formatPrice(val) {
+        var symbol = (brandData && brandData.products.length && brandData.products[0].formatted_regular)
+            ? brandData.products[0].formatted_regular.replace(/[0-9.,]/g, '')
+            : '$';
+        return symbol + Math.round(val);
     }
 
     // ============================================================
@@ -404,7 +407,7 @@
         var $container = $('#brand-history');
         if (!$container.length) return;
 
-        if (!brand.history || brand.history === '<p>sakaskn</p>' || stripHtml(brand.history).trim().length < 10) {
+        if (!brand.history || stripHtml(brand.history).trim().length < 10) {
             $container.closest('.brand-history-section').hide();
             return;
         }
@@ -430,134 +433,75 @@
     }
 
     function buildProductCard(p, index) {
+        var delay = Math.min((index + 1) * 50, 400);
 
-    var delay = Math.min((index + 1) * 50, 400);
+        var html = '<div class="col-lg-4 col-md-6 col-sm-6 mb-4" data-aos="fade-up" data-aos-delay="' + delay + '">';
+        html += '<div class="product-card">';
 
-    var html = '';
+        // Image
+        html += '<div class="pc-image">';
+        if (p.image) {
+            html += '<a href="' + p.url + '"><img src="' + p.image + '" alt="' + escapeHtml(p.name) + '" loading="lazy"></a>';
+        } else {
+            html += '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--bg-alt);color:var(--muted);"><i class="fa-solid fa-utensils" style="font-size:2rem;"></i></div>';
+        }
 
-    html += '<div class="col-lg-4 col-md-6 col-sm-6 mb-4">';
-    html += '    <div class="product-card" data-aos="fade-up" data-aos-delay="' + delay + '">';
+        if (p.has_discount && p.discount_percent > 0) {
+            html += '<span class="pc-discount-badge">-' + p.discount_percent + '%</span>';
+        }
 
-    // ==========================
-    // Product Image
-    // ==========================
+        html += '<div class="pc-actions">';
+        html += '  <button class="pc-action-btn btn-quick-view" data-slug="' + p.slug + '" title="Quick View"><i class="fa-solid fa-eye"></i></button>';
+        html += '  <button class="pc-action-btn btn-copy-link" data-url="' + p.url + '" title="Copy Link"><i class="fa-solid fa-link"></i></button>';
+        html += '</div>';
 
-    html += '        <div class="pc-image">';
+        html += '</div>';
 
-    if (p.image) {
-        html += '            <a href="' + p.url + '">';
-        html += '                <img src="' + p.image + '" alt="' + escapeHtml(p.name) + '" loading="lazy">';
-        html += '            </a>';
-    } else {
-        html += '            <img src="' + BASE_URL + '/assets/img/no-image.webp" alt="' + escapeHtml(p.name) + '" loading="lazy">';
+        // Body
+        html += '<div class="pc-body">';
+
+        // Brand (small logo + name)
+        html += '<div class="pc-brand">';
+        if (p.brand_logo) {
+            html += '<img src="' + p.brand_logo + '" alt="' + escapeHtml(p.brand_name || '') + '" loading="lazy">';
+        }
+        html += '<span>' + escapeHtml(p.brand_name || brandData.brand.name) + '</span>';
+        html += '</div>';
+
+        // Name
+        html += '<h4 class="pc-name"><a href="' + p.url + '" style="color:var(--text);transition:color 0.3s;">' + escapeHtml(p.name) + '</a></h4>';
+
+        // Category
+        if (p.category_name) {
+            html += '<div class="pc-category">' + escapeHtml(p.category_name) + '</div>';
+        }
+
+        // Calories
+        if (p.calories > 0) {
+            html += '<div class="pc-meta"><span><i class="fa-solid fa-fire"></i> ' + p.calories + ' cal</span></div>';
+        }
+
+        // Footer: price + View Details
+        html += '<div class="pc-footer">';
+        html += '<div class="pc-prices">';
+        if (p.has_discount && p.formatted_discount) {
+            html += '<span class="pc-original-price">' + p.formatted_regular + '</span>';
+            html += '<span class="pc-current-price">' + p.formatted_discount + '</span>';
+        } else if (p.formatted_regular) {
+            html += '<span class="pc-current-price">' + p.formatted_regular + '</span>';
+        } else {
+            html += '<span class="pc-current-price" style="font-size:0.85rem;color:var(--muted);">N/A</span>';
+        }
+        html += '</div>';
+        html += '<a href="' + p.url + '" class="pc-view-btn">View Details</a>';
+        html += '</div>';
+
+        html += '</div>';
+        html += '</div>';
+        html += '</div>';
+
+        return html;
     }
-
-    // Discount Badge
-
-    if (p.has_discount && p.discount_percent > 0) {
-        html += '        <div class="pc-discount-badge">-' + p.discount_percent + '%</div>';
-    }
-
-    // ==========================
-    // Action Buttons
-    // ==========================
-
-    html += '        <div class="pc-actions">';
-
-    html += '            <button class="pc-action-btn" onclick="toggleFavorite(\'' + p.slug + '\')" aria-label="Add to favorites">';
-    html += '                <i class="far fa-heart"></i>';
-    html += '            </button>';
-
-    html += '            <button class="pc-action-btn" onclick="quickView(\'' + p.slug + '\')" aria-label="Quick View">';
-    html += '                <i class="far fa-eye"></i>';
-    html += '            </button>';
-
-    html += '            <button class="pc-action-btn" onclick="shareProduct(\'' + p.slug + '\')" aria-label="Share">';
-    html += '                <i class="fas fa-share-alt"></i>';
-    html += '            </button>';
-
-    html += '        </div>';
-
-    html += '    </div>';
-
-    // ==========================
-    // Body
-    // ==========================
-
-    html += '    <div class="pc-body">';
-
-    // Brand
-
-    html += '        <div class="pc-brand">';
-
-    if (p.brand_logo) {
-        html += '            <img src="' + p.brand_logo + '" alt="' + escapeHtml(p.brand_name) + '" loading="lazy">';
-    }
-
-    html += '            <span>' + escapeHtml(p.brand_name) + '</span>';
-
-    html += '        </div>';
-
-    // Product Name
-
-    html += '        <div class="pc-name">';
-    html += '            <a href="' + p.url + '">' + escapeHtml(p.name) + '</a>';
-    html += '        </div>';
-
-    // Category
-
-    if (p.category_name) {
-        html += '        <div class="pc-category">';
-        html += escapeHtml(p.category_name);
-        html += '        </div>';
-    }
-
-    // Calories
-
-    html += '        <div class="pc-meta">';
-
-    if (p.calories) {
-        html += '            <span><i class="fas fa-fire"></i> ' + p.calories + ' cal</span>';
-    }
-
-    html += '        </div>';
-
-    // Footer
-
-    html += '        <div class="pc-footer">';
-
-    html += '            <div class="pc-prices">';
-
-    if (p.has_discount && p.formatted_discount) {
-
-        html += '                <span class="pc-original-price">' + p.formatted_regular + '</span>';
-        html += '                <span class="pc-current-price">' + p.formatted_discount + '</span>';
-
-    } else if (p.formatted_regular) {
-
-        html += '                <span class="pc-current-price">' + p.formatted_regular + '</span>';
-
-    } else {
-
-        html += '                <span class="pc-current-price">N/A</span>';
-
-    }
-
-    html += '            </div>';
-
-    html += '            <button class="pc-view-btn" onclick="window.location.href=\'' + p.url + '\'">';
-    html += '                Details';
-    html += '            </button>';
-
-    html += '        </div>';
-
-    html += '    </div>';
-
-    html += '</div>';
-    html += '</div>';
-
-    return html;
-}
 
     // Quick view & copy link delegation
     $(document).on('click', '.btn-quick-view', function (e) {
@@ -681,13 +625,14 @@
 
     function showEmptyProducts() {
         var searchMsg = state.search ? ' matching "<strong>' + escapeHtml(state.search) + '</strong>"' : '';
-        var catMsg = state.category_id ? ' in this category' : '';
+        var catMsg = state.category_ids.length ? ' in the selected categories' : '';
 
         $productsGrid.html(
             '<div style="grid-column:1/-1;text-align:center;padding:3rem 2rem;">' +
             '<i class="fa-solid fa-utensils" style="font-size:2.5rem;color:var(--muted);opacity:0.3;margin-bottom:1rem;display:block;"></i>' +
             '<h3 style="font-family:var(--font-display);font-size:1.2rem;margin-bottom:0.5rem;">No products found' + searchMsg + catMsg + '</h3>' +
             '<p style="color:var(--text-secondary);font-size:0.9rem;">Try a different filter or search term.</p>' +
+            '<button class="btn-reset-brand-filters filter-reset-btn" style="max-width:200px;margin:1rem auto 0;">Clear Filters</button>' +
             '</div>'
         );
     }
@@ -701,20 +646,29 @@
         if (eventsBound) return;
         eventsBound = true;
 
-        // --- Category filter click ---
-        $(document).on('click', '.brand-cat-pill', function () {
-            var catId = $(this).data('cat-id');
-            state.category_id = catId ? parseInt(catId) : null;
-            state.page = 1;
+        // --- Category checkboxes (desktop + mobile, multi-select, pending only) ---
+        $(document).on('change', '#brand-filter-categories input[type="checkbox"], #brand-filter-categories-mobile input[type="checkbox"]', function () {
+            var val = parseInt($(this).val());
+            var checked = $(this).is(':checked');
 
-            $('.brand-cat-pill').removeClass('active');
-            $(this).addClass('active');
+            if (checked && pending.category_ids.indexOf(val) === -1) {
+                pending.category_ids.push(val);
+            } else if (!checked) {
+                pending.category_ids = pending.category_ids.filter(function (v) { return v !== val; });
+            }
 
-            updateUrlParams(true);
-            loadProductsOnly();
+            $('#brand-filter-categories input[value="' + val + '"], #brand-filter-categories-mobile input[value="' + val + '"]').prop('checked', checked);
         });
 
-        // --- Search input (debounced) ---
+        // --- Price range slider (desktop + mobile, pending only) ---
+        $(document).on('input', '#brand-filter-price, #brand-filter-price-mobile', function () {
+            var val = parseFloat($(this).val());
+            pending.max_price = val;
+            $('#brand-filter-price, #brand-filter-price-mobile').val(val);
+            $('#brand-price-max-label, #brand-price-max-label-mobile').text(formatPrice(val));
+        });
+
+        // --- Search input (debounced, applies immediately) ---
         var searchTimer = null;
         $(document).on('input', '#brand-product-search', function () {
             var val = $(this).val().trim();
@@ -727,7 +681,6 @@
             }, 500);
         });
 
-        // --- Search form submit ---
         $(document).on('submit', '#brand-product-search-form', function (e) {
             e.preventDefault();
             var val = $(this).find('#brand-product-search').val().trim();
@@ -737,12 +690,55 @@
             loadProductsOnly();
         });
 
-        // --- Sort dropdown ---
-        $(document).on('change', '#brand-product-sort', function () {
+        // --- Sort dropdown (desktop + mobile, applies immediately) ---
+        $(document).on('change', '#brand-product-sort, #brand-product-sort-mobile', function () {
             state.sort = $(this).val();
+            $('#brand-product-sort, #brand-product-sort-mobile').val(state.sort);
             state.page = 1;
             updateUrlParams(true);
             loadProductsOnly();
+        });
+
+        // --- Apply Filters button (desktop + mobile) ---
+        $(document).on('click', '#btn-brand-apply-filters, #btn-brand-apply-filters-mobile', function () {
+            state.category_ids = pending.category_ids.slice();
+            state.max_price = pending.max_price;
+            state.page = 1;
+            updateUrlParams(true);
+            loadProductsOnly();
+            closeMobileFilter();
+        });
+
+        // --- Reset Filters button (desktop + mobile + empty-state) ---
+        $(document).on('click', '#btn-brand-reset-filters, #btn-brand-reset-filters-mobile, .btn-reset-brand-filters', function () {
+            state.category_ids = [];
+            state.max_price = null;
+            state.search = '';
+            state.sort = 'newest';
+            state.page = 1;
+
+            pending.category_ids = [];
+            pending.max_price = null;
+
+            $('#brand-filter-categories input[type="checkbox"], #brand-filter-categories-mobile input[type="checkbox"]').prop('checked', false);
+            $('#brand-product-search').val('');
+            $('#brand-product-sort, #brand-product-sort-mobile').val('newest');
+            renderPriceRange();
+
+            updateUrlParams(true);
+            loadProductsOnly();
+            closeMobileFilter();
+        });
+
+        // --- Mobile filter drawer open/close ---
+        $(document).on('click', '#btn-mobile-brand-filter', function () {
+            $('#brand-mobile-filter-panel').css('left', '0');
+            $('#brand-mobile-filter-overlay').show();
+            $('body').css('overflow', 'hidden');
+        });
+
+        $(document).on('click', '#btn-close-brand-mobile-filter, #brand-mobile-filter-overlay', function () {
+            closeMobileFilter();
         });
 
         // --- Browser back/forward ---
@@ -751,29 +747,34 @@
                 var s = e.originalEvent.state;
                 state.page = s.page || 1;
                 state.per_page = s.per_page || 12;
-                state.category_id = s.category_id || null;
+                state.category_ids = s.category_ids || [];
+                state.max_price = (s.max_price !== undefined) ? s.max_price : null;
                 state.search = s.search || '';
                 state.sort = s.sort || 'newest';
 
-                // Update UI
+                pending.category_ids = state.category_ids.slice();
+                pending.max_price = state.max_price;
+
                 var $input = $('#brand-product-search');
                 if ($input.length) $input.val(state.search);
 
-                var $sort = $('#brand-product-sort');
-                if ($sort.length) $sort.val(state.sort);
+                $('#brand-product-sort, #brand-product-sort-mobile').val(state.sort);
 
-                // Update category list active state
-                $('.brand-cat-pill').removeClass('active');
-                var $activePill = $('.brand-cat-pill[data-cat-id="' + (state.category_id || '') + '"]');
-                if ($activePill.length) {
-                    $activePill.addClass('active');
-                } else {
-                    $('.brand-cat-pill[data-cat-id=""]').addClass('active');
-                }
+                $('#brand-filter-categories input[type="checkbox"], #brand-filter-categories-mobile input[type="checkbox"]').each(function () {
+                    var val = parseInt($(this).val());
+                    $(this).prop('checked', state.category_ids.indexOf(val) !== -1);
+                });
+                renderPriceRange();
 
                 loadProductsOnly();
             }
         });
+    }
+
+    function closeMobileFilter() {
+        $('#brand-mobile-filter-panel').css('left', '-320px');
+        $('#brand-mobile-filter-overlay').hide();
+        $('body').css('overflow', '');
     }
 
     // ============================================================
@@ -797,13 +798,6 @@
         var div = document.createElement('div');
         div.appendChild(document.createTextNode(str));
         return div.innerHTML;
-    }
-
-    function truncateDesc(text, maxLen) {
-        if (!text) return '';
-        var plain = $('<div>').html(text).text().trim();
-        if (plain.length <= maxLen) return plain;
-        return plain.substring(0, maxLen).trim() + '...';
     }
 
 })();

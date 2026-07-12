@@ -452,6 +452,8 @@ CREATE TABLE contact_messages (
 
     subject VARCHAR(255),
 
+    ip_address VARCHAR(50),
+
     message LONGTEXT,
 
     status ENUM('new','read','replied') DEFAULT 'new',

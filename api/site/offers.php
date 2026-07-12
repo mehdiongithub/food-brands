@@ -394,15 +394,32 @@ try {
         $searchParams[] = '%' . $search . '%';
     }
 
-    // Filter by brand
+    // Filter by brand (supports multi-select brand_ids=1,2,3 and legacy single brand_id)
+    $brandIdsInput = getInput('brand_ids');
     $brandFilter = getInput('brand_id');
     $brandSql = '';
     $brandParams = [];
+    $brandIdsList = [];
 
-    if ($brandFilter) {
-        $brandFilter = (int) $brandFilter;
-        $brandSql = " AND o.brand_id = ? ";
-        $brandParams[] = $brandFilter;
+    if ($brandIdsInput) {
+        $brandIdsList = array_filter(array_map('intval', explode(',', $brandIdsInput)));
+    } elseif ($brandFilter) {
+        $brandIdsList = [(int) $brandFilter];
+    }
+
+    if (!empty($brandIdsList)) {
+        $placeholders = implode(',', array_fill(0, count($brandIdsList), '?'));
+        $brandSql = " AND o.brand_id IN ($placeholders) ";
+        $brandParams = $brandIdsList;
+    }
+
+    // Filter by minimum discount percent
+    $minDiscount = getInput('min_discount');
+    $discountSql = '';
+    $discountParams = [];
+    if ($minDiscount !== null && $minDiscount !== '') {
+        $discountSql = " AND o.discount_percent >= ? ";
+        $discountParams[] = (float) $minDiscount;
     }
 
     // Filter: show expired offers too?
@@ -426,20 +443,20 @@ try {
     if ($sort === 'brand_asc') $sortSql = " ORDER BY b.name ASC ";
 
     // Count total
-    $countParams = array_merge($searchParams, $brandParams, [$countryFilter]);
+    $countParams = array_merge($searchParams, $brandParams, $discountParams, [$countryFilter]);
     $stmt = $db->prepare("
         SELECT COUNT(DISTINCT o.id) AS total
         FROM offers o
         INNER JOIN brands b ON b.id = o.brand_id AND b.status = 1
         INNER JOIN offer_countries oc ON oc.offer_id = o.id AND oc.country_id = ?
         WHERE o.status = 1
-        $searchSql $brandSql $dateSql
+        $searchSql $brandSql $discountSql $dateSql
     ");
     $stmt->execute($countParams);
     $totalOffers = (int) $stmt->fetchColumn();
 
     // Fetch offers
-    $fetchParams = array_merge($searchParams, $brandParams, [$countryFilter, $per_page, $offset]);
+    $fetchParams = array_merge($searchParams, $brandParams, $discountParams, [$countryFilter, $per_page, $offset]);
     $stmt = $db->prepare("
         SELECT o.id, o.title, o.slug, o.description, o.discount_percent, o.coupon_code,
                o.start_date, o.end_date, o.image,
@@ -448,7 +465,7 @@ try {
         INNER JOIN brands b ON b.id = o.brand_id AND b.status = 1
         INNER JOIN offer_countries oc ON oc.offer_id = o.id AND oc.country_id = ?
         WHERE o.status = 1
-        $searchSql $brandSql $dateSql
+        $searchSql $brandSql $discountSql $dateSql
         $sortSql
         LIMIT ? OFFSET ?
     ");
@@ -564,7 +581,8 @@ try {
             'discount_min'    => $discRange['min_disc'] !== null ? (float) $discRange['min_disc'] : 0,
             'discount_max'    => $discRange['max_disc'] !== null ? (float) $discRange['max_disc'] : 0,
             'active_search'   => $search,
-            'active_brand'    => $brandFilter ? (int) $brandFilter : null,
+            'active_brands'   => $brandIdsList,
+            'active_min_discount' => ($minDiscount !== null && $minDiscount !== '') ? (float) $minDiscount : null,
             'active_country'  => $countryFilter,
             'active_sort'     => $sort,
             'show_expired'    => ($showExpired === '1' || $showExpired === 'true') ? true : false

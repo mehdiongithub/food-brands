@@ -122,80 +122,163 @@ require_once __DIR__ . '/includes/header.php';
                     </ol>
                 </nav>
                 <h1 id="cat-name"><?php echo escapeHtml($categoryName); ?></h1>
-                <p id="cat-description"><?php echo $categoryMeta['description'] ? $categoryMeta['description'] : 'Browse all products, brands, and prices in this category.'; ?></p>
 
-                <!-- Category Stats -->
-                <div style="display:flex;gap:2.5rem;justify-content:center;margin-top:1.5rem;flex-wrap:wrap;" data-aos="fade-up">
-                    <div style="text-align:center;">
-                        <div style="font-size:1.6rem;font-weight:900;color:var(--primary);" id="cat-stat-products">0</div>
-                        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">Products</div>
-                    </div>
-                    <div style="text-align:center;">
-                        <div style="font-size:1.6rem;font-weight:900;color:var(--primary);" id="cat-stat-brands">0</div>
-                        <div style="font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;">Brands</div>
-                    </div>
-                </div>
+                <p id="cat-description">
+                    Discover the best <?php echo escapeHtml($categoryName); ?> from top food brands. Compare prices, explore menu items, check the latest deals, and find your favorite  available in different countries.
+                </p>
             </div>
         </div>
     </section>
 
-    <!-- ===== BRAND PILLS & PRODUCTS SECTION ===== -->
+    <!-- ===== FILTER SIDEBAR + PRODUCTS SECTION ===== -->
     <section class="section-padding" style="background:var(--bg-alt);padding-top:2rem;padding-bottom:3rem;">
         <div class="container">
-            <!-- Brand Filter Pills -->
-            <div id="cat-brand-pills" style="display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:center;margin-bottom:1.5rem;" data-aos="fade-up">
-                <!-- Populated by categories.js (detail mode) -->
-            </div>
+            <div class="row g-4">
 
-            <!-- Products Toolbar -->
-            <div class="toolbar" id="cat-products-toolbar" data-aos="fade-up">
-                <div class="toolbar-left">
-                    <form id="cat-product-search-form" style="position:relative;flex:1;max-width:300px;">
-                        <input type="text" id="cat-product-search" class="form-control" placeholder="Search products in this category..." style="padding-left:2.5rem;font-size:0.88rem;border-radius:var(--radius-full);">
-                        <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:0.85rem;top:50%;transform:translateY(-50%);color:var(--muted);font-size:0.85rem;pointer-events:none;"></i>
-                    </form>
+                <!-- ===== FILTER SIDEBAR (Desktop) ===== -->
+                <div class="col-lg-3 d-none d-lg-block">
+                    <div class="filter-panel" id="cat-filter-panel">
+
+                        <div class="filter-title">
+                            <span><i class="fa-solid fa-sliders" style="margin-right:0.5rem;color:var(--primary);"></i>Filters</span>
+                        </div>
+
+                        <!-- Search -->
+                        <form id="cat-product-search-form" style="margin-bottom:1.25rem;">
+                            <div style="position:relative;">
+                                <input type="text" id="cat-product-search" class="form-control" placeholder="Search products..." style="padding-left:2.5rem;font-size:0.88rem;">
+                                <i class="fa-solid fa-magnifying-glass" style="position:absolute;left:0.85rem;top:50%;transform:translateY(-50%);color:var(--muted);font-size:0.85rem;pointer-events:none;"></i>
+                            </div>
+                        </form>
+
+                        <!-- Brands Filter -->
+                        <div class="filter-group">
+                            <div class="filter-group-title">Brands</div>
+                            <div id="cat-filter-brands">
+                                <div style="padding:0.5rem 0;color:var(--muted);font-size:0.82rem;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
+                            </div>
+                        </div>
+
+                        <!-- Price Range Filter -->
+                        <div class="filter-group">
+                            <div class="filter-group-title">Price Range</div>
+                            <div class="price-range-wrap">
+                                <input type="range" id="cat-filter-price" min="0" max="999" step="1" value="999">
+                                <div class="price-range-labels">
+                                    <span id="cat-price-min-label">$0</span>
+                                    <span id="cat-price-max-label">$999</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <button id="btn-cat-apply-filters" class="filter-apply-btn">
+                            <i class="fa-solid fa-check" style="margin-right:0.4rem;"></i> Apply Filters
+                        </button>
+                        <button id="btn-cat-reset-filters" class="filter-reset-btn">
+                            <i class="fa-solid fa-rotate-left" style="margin-right:0.4rem;"></i> Reset All
+                        </button>
+
+                    </div>
                 </div>
-                <div class="toolbar-right">
-                    <span class="toolbar-count" id="cat-products-count">Loading products...</span>
-                    <select id="cat-product-sort" class="toolbar-sort">
-                        <option value="newest">Newest First</option>
-                        <option value="price_low">Price: Low to High</option>
-                        <option value="price_high">Price: High to Low</option>
-                        <option value="name_asc">Name A–Z</option>
-                        <option value="name_desc">Name Z–A</option>
-                        <option value="calories_low">Calories: Low to High</option>
-                        <option value="calories_high">Calories: High to Low</option>
-                    </select>
+
+                <!-- ===== MAIN CONTENT (Toolbar + Grid + Pagination) ===== -->
+                <div class="col-lg-9">
+
+                    <!-- Products Toolbar -->
+                    <div class="toolbar" id="cat-products-toolbar" data-aos="fade-up">
+                        <div class="toolbar-left">
+                            <span class="toolbar-count" id="cat-products-count">Loading products...</span>
+                        </div>
+                        <div class="toolbar-right">
+                            <!-- Mobile filter button -->
+                            <button class="toolbar-view-btn d-lg-none" id="btn-mobile-cat-filter" title="Filter products">
+                                <i class="fa-solid fa-sliders"></i> Filters
+                            </button>
+                            <select id="cat-product-sort" class="toolbar-sort">
+                                <option value="newest">Newest First</option>
+                                <option value="price_low">Price: Low to High</option>
+                                <option value="price_high">Price: High to Low</option>
+                                <option value="name_asc">Name A–Z</option>
+                                <option value="name_desc">Name Z–A</option>
+                                <option value="calories_low">Calories: Low to High</option>
+                                <option value="calories_high">Calories: High to Low</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Products Skeleton -->
+                    <div id="cat-products-skeleton">
+                        <div class="row g-3">
+                            <?php for ($i = 0; $i < 6; $i++): ?>
+                            <div class="col-6 col-md-4 col-lg-4"><div class="skeleton skeleton-card"></div></div>
+                            <?php endfor; ?>
+                        </div>
+                    </div>
+
+                    <!-- Products Grid -->
+                    <div id="cat-products-grid" class="row g-3" style="display:none;">
+                        <!-- Populated by category-detail.js via AJAX -->
+                    </div>
+
+                    <!-- Pagination -->
+                    <div id="cat-products-pagination" style="display:none;">
+                        <!-- Populated by category-detail.js via AJAX -->
+                    </div>
+
+                    <!-- Empty State -->
+                    <div id="cat-products-empty" style="display:none;">
+                        <!-- Populated by category-detail.js when no products found -->
+                    </div>
+
                 </div>
             </div>
-
-            <!-- Products Skeleton -->
-            <div id="cat-products-skeleton">
-                <div class="row g-3">
-                    <?php for ($i = 0; $i < 6; $i++): ?>
-                    <div class="col-6 col-md-4 col-lg-3"><div class="skeleton skeleton-card"></div></div>
-                    <?php endfor; ?>
-                </div>
-            </div>
-
-            <!-- Products Grid -->
-            <div id="cat-products-grid" class="row g-3" style="display:none;">
-                <!-- Populated by categories.js (detail mode) via AJAX -->
-            </div>
-
-            <!-- Pagination -->
-            <div id="cat-products-pagination" style="display:none;">
-                <!-- Populated by categories.js (detail mode) via AJAX -->
-            </div>
-
-            <!-- Empty State -->
-            <div id="cat-products-empty" style="display:none;">
-                <!-- Populated by categories.js when no products found -->
-            </div>
-
         </div>
     </section>
 
+</div>
+
+<!-- ============================================================
+     MOBILE FILTER PANEL (Slide-in)
+     ============================================================ -->
+<div id="cat-mobile-filter-overlay" style="position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.5);display:none;"></div>
+<div id="cat-mobile-filter-panel" style="position:fixed;top:0;left:-320px;width:300px;height:100vh;z-index:9999;background:var(--surface);box-shadow:var(--shadow-xl);transition:left 0.3s ease;overflow-y:auto;padding:1.5rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
+        <span style="font-family:var(--font-display);font-size:1.15rem;font-weight:700;">Filters</span>
+        <button id="btn-close-cat-mobile-filter" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+
+    <!-- Brands Filter -->
+    <div class="filter-group">
+        <div class="filter-group-title">Brands</div>
+        <div id="cat-filter-brands-mobile">
+            <div style="padding:0.5rem 0;color:var(--muted);font-size:0.82rem;"><i class="fa-solid fa-spinner fa-spin"></i> Loading...</div>
+        </div>
+    </div>
+
+    <!-- Price Range Filter -->
+    <div class="filter-group">
+        <div class="filter-group-title">Price Range</div>
+        <div class="price-range-wrap">
+            <input type="range" id="cat-filter-price-mobile" min="0" max="999" step="1" value="999">
+            <div class="price-range-labels">
+                <span id="cat-price-min-label-mobile">$0</span>
+                <span id="cat-price-max-label-mobile">$999</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div style="margin-top:1.5rem;display:flex;flex-direction:column;gap:0.5rem;">
+        <button id="btn-cat-apply-filters-mobile" class="filter-apply-btn">
+            <i class="fa-solid fa-check" style="margin-right:0.4rem;"></i> Apply Filters
+        </button>
+        <button id="btn-cat-reset-filters-mobile" class="filter-reset-btn">
+            <i class="fa-solid fa-rotate-left" style="margin-right:0.4rem;"></i> Reset All
+        </button>
+    </div>
 </div>
 
 <?php

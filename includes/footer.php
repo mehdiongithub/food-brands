@@ -44,8 +44,9 @@ require_once BASE_PATH . '/includes/functions.php';
     'brand' => 'brand-detail.js',
     'product' => 'product-detail.js',
     'categories' => 'categories.js',
-    'category' => 'categories.js',
+    'category' => 'category-detail.js',
     'offers' => 'offers.js',
+    'offer-detail' => 'offer-detail.js',
     'faq' => 'faq.js',
     'contact' => 'contact.js',
     'about' => '',
@@ -203,11 +204,11 @@ require_once BASE_PATH . '/includes/functions.php';
 <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
 
 <!-- Common JS (loaded on every page) -->
-<script src="<?php echo BASE_URL; ?>/assets/js/common.js"></script>
+<script src="<?php echo BASE_URL; ?>/assets/js/common.js?v=<?php echo @filemtime(BASE_PATH . '/assets/js/common.js') ?: time(); ?>"></script>
 
 <?php if ($pageJsFile): ?>
 <!-- Page-specific JS -->
-<script src="<?php echo BASE_URL; ?>/assets/js/<?php echo $pageJsFile; ?>"></script>
+<script src="<?php echo BASE_URL; ?>/assets/js/<?php echo $pageJsFile; ?>?v=<?php echo @filemtime(BASE_PATH . '/assets/js/' . $pageJsFile) ?: time(); ?>"></script>
 <?php endif; ?>
 
 <!-- Google Analytics (if set in settings) -->

@@ -1,7 +1,7 @@
 /**
- * offer-detail.js — Loaded ONLY on offer-detail.php (Offer detail page)
- * Handles: offer hero, coupon box, validity/countdown, countries,
- * eligible products grid with filters + pagination, other offers, share
+ * offers.js — Loaded ONLY on offers.php (Offers listing page)
+ * Handles: sidebar filters (brand checkboxes + min-discount range + show-expired),
+ * offers grid with search/sort, pagination, URL params sync, mobile filter drawer
  */
 
 (function () {
@@ -9,66 +9,73 @@
 
     var BASE_URL = window.BASE_URL || '/food-brands';
 
-    // Offer slug from PHP (injected via inline script in offer-detail.php)
-    var offerSlug = window.OFFER_SLUG || '';
-
-    // Current product filter state (for the "eligible products" grid)
+    // Offers filter state (committed / applied)
     var state = {
         page: 1,
         per_page: 12,
+        brand_ids: [],      // multi-select brand checkboxes
+        min_discount: null, // discount range slider
         search: '',
-        sort: 'newest'
+        sort: 'discount_high',
+        show_expired: false
+    };
+
+    // Pending sidebar selections (only committed to `state` on Apply)
+    var pending = {
+        brand_ids: [],
+        min_discount: null
     };
 
     // DOM references
-    var $productsGrid, $paginationWrap, $countEl, $skeletonWrap;
-    var offerData = null; // Store full offer response
+    var $grid, $paginationWrap, $countEl, $skeletonWrap;
+    var offersData = null;
+    var discountBounds = { min: 0, max: 100 };
 
     $(document).ready(function () {
-        $productsGrid = $('#od-products-grid');
-        $paginationWrap = $('#od-products-pagination');
-        $countEl = $('#od-products-count');
-        $skeletonWrap = $('#od-products-skeleton');
-
-        if (!offerSlug) {
-            showError('Offer slug is missing. Please check the URL.');
-            return;
-        }
-
-        // Read URL params for product filters
-        readUrlParams();
-
-        // Load offer detail + first page of eligible products
-        loadOfferDetail();
+        init();
     });
 
+    function init() {
+        $grid = $('#offers-grid');
+        $paginationWrap = $('#offers-pagination');
+        $countEl = $('#offers-count');
+        $skeletonWrap = $('#offers-skeleton');
+
+        readUrlParams();
+        loadOffers(true);
+        bindEvents();
+    }
+
     // ============================================================
-    // READ URL PARAMS
+    // URL PARAMS
     // ============================================================
     function readUrlParams() {
         var params = new URLSearchParams(window.location.search);
 
         if (params.get('page')) state.page = parseInt(params.get('page')) || 1;
         if (params.get('per_page')) state.per_page = parseInt(params.get('per_page')) || 12;
+        if (params.get('brand_ids')) {
+            state.brand_ids = params.get('brand_ids').split(',').map(function (v) { return parseInt(v); }).filter(Boolean);
+        }
+        if (params.get('min_discount')) state.min_discount = parseFloat(params.get('min_discount'));
         if (params.get('search')) state.search = params.get('search');
         if (params.get('sort')) state.sort = params.get('sort');
+        if (params.get('show_expired') === '1') state.show_expired = true;
 
-        // Populate search input
+        pending.brand_ids = state.brand_ids.slice();
+        pending.min_discount = state.min_discount;
+
         if (state.search) {
-            var $input = $('#od-product-search');
-            if ($input.length) $input.val(state.search);
+            $('#offer-search-input').val(state.search);
         }
-
-        // Populate sort dropdown
         if (state.sort) {
-            var $sort = $('#od-product-sort');
-            if ($sort.length) $sort.val(state.sort);
+            $('#offer-sort-select, #offer-sort-select-mobile').val(state.sort);
+        }
+        if (state.show_expired) {
+            $('#offer-expired-toggle, #offer-expired-toggle-mobile').prop('checked', true);
         }
     }
 
-    // ============================================================
-    // UPDATE URL PARAMS
-    // ============================================================
     function updateUrlParams(resetPage) {
         if (resetPage) state.page = 1;
 
@@ -76,628 +83,402 @@
 
         if (state.page > 1) params.set('page', state.page);
         if (state.per_page !== 12) params.set('per_page', state.per_page);
+        if (state.brand_ids.length) params.set('brand_ids', state.brand_ids.join(','));
+        if (state.min_discount !== null && state.min_discount !== undefined) params.set('min_discount', state.min_discount);
         if (state.search) params.set('search', state.search);
-        if (state.sort !== 'newest') params.set('sort', state.sort);
+        if (state.sort !== 'discount_high') params.set('sort', state.sort);
+        if (state.show_expired) params.set('show_expired', '1');
 
         var queryString = params.toString();
-        var newUrl = BASE_URL + '/offers/' + offerSlug + (queryString ? '?' + queryString : '');
+        var newUrl = BASE_URL + '/offers' + (queryString ? '?' + queryString : '');
 
         window.history.replaceState(state, '', newUrl);
     }
 
-    // ============================================================
-    // LOAD OFFER DETAIL
-    // ============================================================
-    function loadOfferDetail() {
-        showPageSkeleton();
-
+    function buildRequestParams() {
         var params = {
-            action: 'detail',
-            slug: offerSlug,
+            action: 'list',
             page: state.page,
             per_page: state.per_page,
             sort: state.sort
         };
-        if (state.search) params.search = state.search;
 
-        $.getJSON(BASE_URL + '/api/site/offers.php', params, function (res) {
+        if (state.brand_ids.length) params.brand_ids = state.brand_ids.join(',');
+        if (state.min_discount !== null && state.min_discount !== undefined) params.min_discount = state.min_discount;
+        if (state.search) params.search = state.search;
+        if (state.show_expired) params.show_expired = '1';
+
+        return params;
+    }
+
+    // ============================================================
+    // LOAD OFFERS
+    // ============================================================
+    function loadOffers() {
+        showSkeleton();
+        hideError();
+
+        $.getJSON(BASE_URL + '/api/site/offers.php', buildRequestParams(), function (res) {
             if (!res.success) {
-                if (res.message && res.message.indexOf('not found') !== -1) {
-                    show404();
-                } else {
-                    showError(res.message || 'Failed to load offer details.');
-                }
+                showError(res.message || 'Failed to load offers.');
                 return;
             }
 
-            offerData = res;
+            offersData = res;
 
-            hidePageSkeleton();
-            renderHero(res.offer, res.brand);
-            renderImage(res.offer, res.brand);
-            renderCouponBox(res.offer);
-            renderDiscount(res.offer);
-            renderDescription(res.offer);
-            renderValidity(res.offer);
-            renderBrandCard(res.brand);
-            renderCountries(res.countries);
-
-            if (res.products.length === 0) {
-                $productsGrid.html('');
-                showEmptyProducts();
-            } else {
-                renderProducts(res.products);
+            if (res.filters) {
+                discountBounds.min = res.filters.discount_min || 0;
+                discountBounds.max = res.filters.discount_max || 0;
             }
+
+            hideSkeleton();
+            renderBrandFilters(res.filters ? res.filters.brands : []);
+            renderDiscountRange();
+
+            if (res.offers.length === 0) {
+                $grid.html('');
+                showEmpty();
+            } else {
+                hideEmpty();
+                renderOffers(res.offers);
+            }
+
             renderPagination(res.pagination);
             updateCount(res.pagination.total_items, res.pagination.current_page, res.pagination.per_page);
             updateUrlParams(false);
-
-            renderOtherOffers(res.other_offers);
-            initShareButtons(res.offer, res.brand);
-
-            // Inject Schema.org JSON-LD returned by the API
-            if (res.schema_json) {
-                $('head').append('<script type="application/ld+json">' + res.schema_json + '<' + '/script>');
-            }
-
-            bindEvents();
             window.refreshAOS();
 
         }).fail(function () {
+            hideSkeleton();
             showError('Network error. Please check your connection and try again.');
         });
     }
 
     // ============================================================
-    // LOAD PRODUCTS ONLY (after initial load — filters/pagination)
+    // RENDER SIDEBAR — BRAND CHECKBOXES (desktop + mobile)
     // ============================================================
-    function loadProductsOnly() {
-        showProductsSkeleton();
-
-        var params = {
-            action: 'detail',
-            slug: offerSlug,
-            page: state.page,
-            per_page: state.per_page,
-            sort: state.sort
-        };
-        if (state.search) params.search = state.search;
-
-        $.getJSON(BASE_URL + '/api/site/offers.php', params, function (res) {
-            if (!res.success) {
-                showError('Failed to load products. Please try again.');
-                return;
-            }
-
-            hideProductsSkeleton();
-
-            if (res.products.length === 0) {
-                $productsGrid.html('');
-                showEmptyProducts();
-            } else {
-                renderProducts(res.products);
-            }
-
-            renderPagination(res.pagination);
-            updateCount(res.pagination.total_items, res.pagination.current_page, res.pagination.per_page);
-            updateUrlParams(false);
-            window.refreshAOS();
-
-        }).fail(function () {
-            showError('Network error while loading products.');
-        });
-    }
-
-    // ============================================================
-    // RENDER HERO (breadcrumb, status badge, title, brand row)
-    // ============================================================
-    function renderHero(offer, brand) {
-        var $breadcrumb = $('#od-breadcrumb-title');
-        if ($breadcrumb.length) $breadcrumb.text(offer.title);
-
-        var $title = $('#od-title');
-        if ($title.length) $title.text(offer.title);
-
-        // Status badge
-        var $badge = $('#od-status-badge');
-        if ($badge.length) {
-            var badgeHtml = '';
-            if (!offer.is_active) {
-                badgeHtml = '<span style="padding:0.3rem 0.85rem;border-radius:var(--radius-full);background:var(--muted);color:#fff;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">Expired</span>';
-            } else if (offer.days_remaining <= 3) {
-                badgeHtml = '<span style="padding:0.3rem 0.85rem;border-radius:var(--radius-full);background:var(--warning);color:#fff;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;"><i class="fa-solid fa-clock" style="margin-right:0.3rem;"></i>Ending Soon</span>';
-            } else {
-                badgeHtml = '<span style="padding:0.3rem 0.85rem;border-radius:var(--radius-full);background:var(--accent);color:#fff;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;"><i class="fa-solid fa-circle-check" style="margin-right:0.3rem;"></i>Active</span>';
-            }
-            $badge.html(badgeHtml);
-        }
-
-        // Brand row
-        var $row = $('#od-brand-row');
-        if ($row.length && brand) {
-            var html = '';
-            if (brand.logo) {
-                html += '<a href="' + brand.url + '"><img src="' + brand.logo + '" alt="' + escapeHtml(brand.name) + '" style="width:32px;height:32px;object-fit:contain;border-radius:6px;background:#fff;padding:4px;"></a>';
-            }
-            html += '<a href="' + brand.url + '" style="color:rgba(255,255,255,0.85);font-weight:600;font-size:0.95rem;">' + escapeHtml(brand.name) + '</a>';
-            $row.html(html);
-        }
-    }
-
-    // ============================================================
-    // RENDER OFFER IMAGE
-    // ============================================================
-    function renderImage(offer, brand) {
-        var $img = $('#od-image');
-        if (!$img.length) return;
-
-        var src = offer.image || (brand ? brand.cover_image : '') || (brand ? brand.logo : '');
-        if (src) {
-            $img.attr('src', src).attr('alt', offer.title);
-        } else {
-            $img.parent().html(
-                '<div style="width:100%;height:320px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--secondary),#2D1B4E);">' +
-                '<i class="fa-solid fa-tags" style="font-size:3rem;color:rgba(255,255,255,0.2);"></i></div>'
-            );
-        }
-    }
-
-    // ============================================================
-    // RENDER COUPON BOX
-    // ============================================================
-    function renderCouponBox(offer) {
-        var $box = $('#od-coupon-box');
-        if (!$box.length) return;
-
-        if (!offer.coupon_code) {
-            $box.hide();
-            return;
-        }
-
-        var html = '<div style="font-size:0.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.5rem;">Use Coupon Code</div>';
-        html += '<div style="display:flex;align-items:center;justify-content:center;gap:0.75rem;">';
-        html += '<span style="font-family:monospace;font-size:1.3rem;font-weight:800;color:var(--primary);letter-spacing:0.05em;">' + escapeHtml(offer.coupon_code) + '</span>';
-        html += '<button class="btn-copy-coupon" data-code="' + escapeHtml(offer.coupon_code) + '" title="Copy code" style="width:36px;height:36px;border-radius:var(--radius-full);border:1px solid var(--border);background:var(--surface);color:var(--primary);cursor:pointer;">';
-        html += '<i class="fa-solid fa-copy"></i></button>';
-        html += '</div>';
-
-        $box.html(html).show();
-    }
-
-    // ============================================================
-    // RENDER DISCOUNT
-    // ============================================================
-    function renderDiscount(offer) {
-        var $discount = $('#od-discount');
-        if ($discount.length) {
-            $discount.text(offer.discount_percent + '% OFF');
-        }
-    }
-
-    // ============================================================
-    // RENDER DESCRIPTION
-    // ============================================================
-    function renderDescription(offer) {
-        var $desc = $('#od-description');
-        if (!$desc.length) return;
-
-        if (offer.description) {
-            $desc.html(offer.description);
-        } else {
-            $desc.html('<p>Enjoy ' + offer.discount_percent + '% off at checkout on eligible items from this brand.</p>');
-        }
-    }
-
-    // ============================================================
-    // RENDER VALIDITY / COUNTDOWN
-    // ============================================================
-    function renderValidity(offer) {
-        var $box = $('#od-validity');
-        if (!$box.length) return;
-
-        var progressPct = 0;
-        if (offer.total_days > 0) {
-            var elapsed = offer.total_days - offer.days_remaining;
-            progressPct = Math.min(100, Math.max(0, Math.round((elapsed / offer.total_days) * 100)));
-        }
-
-        var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem;">';
-        html += '<span style="font-size:0.85rem;color:var(--text-secondary);"><i class="fa-regular fa-calendar" style="margin-right:0.35rem;"></i>' + formatDate(offer.start_date) + ' – ' + formatDate(offer.end_date) + '</span>';
-
-        if (offer.is_active) {
-            html += '<span style="font-size:0.85rem;font-weight:700;color:' + (offer.days_remaining <= 3 ? 'var(--warning)' : 'var(--success)') + ';">' + offer.days_remaining + ' day' + (offer.days_remaining === 1 ? '' : 's') + ' left</span>';
-        } else {
-            html += '<span style="font-size:0.85rem;font-weight:700;color:var(--muted);">Offer expired</span>';
-        }
-        html += '</div>';
-
-        html += '<div style="height:8px;border-radius:var(--radius-full);background:var(--border-light);overflow:hidden;">';
-        html += '<div style="height:100%;width:' + progressPct + '%;background:' + (offer.is_active ? 'linear-gradient(90deg,var(--primary),var(--primary-light))' : 'var(--muted)') + ';border-radius:var(--radius-full);"></div>';
-        html += '</div>';
-
-        $box.html(html);
-    }
-
-    // ============================================================
-    // RENDER BRAND CARD
-    // ============================================================
-    function renderBrandCard(brand) {
-        var $card = $('#od-brand-card');
-        if (!$card.length || !brand) return;
-
+    function renderBrandFilters(brands) {
         var html = '';
-        if (brand.logo) {
-            html += '<img src="' + brand.logo + '" alt="' + escapeHtml(brand.name) + '" style="width:52px;height:52px;object-fit:contain;border-radius:var(--radius-sm);background:var(--bg-alt);padding:6px;flex-shrink:0;">';
-        }
-        html += '<div style="flex:1;">';
-        html += '<div style="font-weight:700;font-size:1rem;margin-bottom:0.2rem;">' + escapeHtml(brand.name) + '</div>';
-        if (brand.short_description) {
-            var plainDesc = $('<div>').html(brand.short_description).text();
-            if (plainDesc.length > 100) plainDesc = plainDesc.substring(0, 97) + '...';
-            html += '<div style="font-size:0.82rem;color:var(--text-secondary);">' + escapeHtml(plainDesc) + '</div>';
-        }
-        html += '</div>';
-        html += '<a href="' + brand.url + '" style="padding:0.5rem 1.1rem;border-radius:var(--radius-full);background:var(--primary);color:#fff;font-size:0.82rem;font-weight:600;white-space:nowrap;">Visit Brand</a>';
 
-        $card.html(html);
+        if (!brands || brands.length === 0) {
+            html = '<div style="padding:0.5rem 0;color:var(--muted);font-size:0.82rem;">No brands available.</div>';
+        } else {
+            $.each(brands, function (i, brand) {
+                var checked = pending.brand_ids.indexOf(brand.id) !== -1 ? 'checked' : '';
+                html += '<label class="filter-option">';
+                html += '  <input type="checkbox" name="brand_id" value="' + brand.id + '" ' + checked + '>';
+                if (brand.logo) {
+                    html += '  <img src="' + brand.logo + '" alt="' + escapeHtml(brand.name) + '" style="width:18px;height:18px;object-fit:contain;border-radius:2px;">';
+                }
+                html += '  <span>' + escapeHtml(brand.name) + '</span>';
+                html += '  <span class="count">' + brand.offer_count + '</span>';
+                html += '</label>';
+            });
+        }
+
+        $('#filter-brands').html(html);
+        $('#filter-brands-mobile').html(html);
     }
 
     // ============================================================
-    // RENDER COUNTRIES
+    // RENDER SIDEBAR — MIN DISCOUNT RANGE SLIDER (desktop + mobile)
     // ============================================================
-    function renderCountries(countries) {
-        var $container = $('#od-countries');
-        if (!$container.length) return;
+    function renderDiscountRange() {
+        var min = discountBounds.min || 0;
+        var max = discountBounds.max > min ? discountBounds.max : min + 1;
+        var current = (pending.min_discount !== null && pending.min_discount !== undefined) ? pending.min_discount : min;
 
-        if (!countries || countries.length === 0) {
-            $container.closest('#od-countries-section').hide();
-            return;
-        }
+        $('#offer-filter-discount, #offer-filter-discount-mobile').attr('min', min).attr('max', max).val(current);
+        $('#offer-discount-min-label, #offer-discount-min-label-mobile').text(Math.round(min) + '%');
+        $('#offer-discount-max-label, #offer-discount-max-label-mobile').text(Math.round(current) + '%+');
+    }
 
+    // ============================================================
+    // RENDER OFFERS GRID
+    // ============================================================
+    function renderOffers(offers) {
         var html = '';
-        $.each(countries, function (i, c) {
-            var activeStyle = c.is_current ? 'border:2px solid var(--primary);' : 'border:2px solid var(--border);';
-            html += '<div class="text-center" style="min-width:70px;" title="' + escapeHtml(c.name) + '">';
-            html += '  <img src="' + c.flag_url + '" alt="' + escapeHtml(c.name) + '" style="width:40px;height:28px;object-fit:cover;border-radius:4px;' + activeStyle + '" loading="lazy">';
-            html += '  <div style="font-size:0.7rem;color:var(--muted);margin-top:0.3rem;white-space:nowrap;">' + escapeHtml(c.name) + '</div>';
-            html += '</div>';
+        $.each(offers, function (i, offer) {
+            html += buildOfferCard(offer, i);
         });
-
-        $container.html(html);
+        $grid.html(html);
+        $grid.show();
     }
 
-    // ============================================================
-    // RENDER ELIGIBLE PRODUCTS
-    // ============================================================
-    function renderProducts(products) {
-        var html = '';
-        $.each(products, function (i, p) {
-            html += buildProductCard(p, i);
-        });
-        $productsGrid.html(html);
-    }
-
-    function buildProductCard(p, index) {
+    function buildOfferCard(offer, index) {
         var delay = Math.min(index * 40, 400);
-        var html = '<div class="product-card" data-aos="fade-up" data-aos-delay="' + delay + '">';
+
+        var html = '<div class="col-6 col-md-4 col-lg-4" data-aos="fade-up" data-aos-delay="' + delay + '">';
+        html += '<div class="offer-card">';
 
         // Image
-        html += '<div class="pc-image">';
-        if (p.image) {
-            html += '<img src="' + p.image + '" alt="' + escapeHtml(p.name) + '" loading="lazy">';
+        html += '<div class="oc-image">';
+        if (offer.image) {
+            html += '<img src="' + offer.image + '" alt="' + escapeHtml(offer.title) + '" loading="lazy">';
         } else {
-            html += '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--bg-alt);color:var(--muted);"><i class="fa-solid fa-utensils" style="font-size:2rem;"></i></div>';
+            html += '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--bg-alt);color:var(--muted);"><i class="fa-solid fa-tag" style="font-size:2rem;"></i></div>';
         }
-        if (p.effective_discount > 0) {
-            html += '<span class="pc-discount-badge">-' + p.effective_discount + '%</span>';
+
+        if (offer.status_label === 'expired') {
+            html += '<span class="oc-status-badge oc-status-expired">Expired</span>';
+        } else if (offer.status_label === 'ending_soon') {
+            html += '<span class="oc-status-badge oc-status-ending">Ending Soon</span>';
         }
-        html += '<div class="pc-actions">';
-        html += '  <button class="pc-action-btn btn-quick-view" data-slug="' + p.slug + '" title="Quick View"><i class="fa-solid fa-eye"></i></button>';
-        html += '  <button class="pc-action-btn btn-copy-link" data-url="' + p.url + '" title="Copy Link"><i class="fa-solid fa-link"></i></button>';
-        html += '</div>';
         html += '</div>';
 
         // Body
-        html += '<div class="pc-body">';
-        html += '<h4 class="pc-name"><a href="' + p.url + '" style="color:var(--text);transition:color 0.3s;">' + escapeHtml(p.name) + '</a></h4>';
+        html += '<div class="oc-body">';
 
-        if (p.category_name) {
-            html += '<div class="pc-category"><a href="' + BASE_URL + '/category/' + p.category_slug + '" style="color:var(--muted);">' + escapeHtml(p.category_name) + '</a></div>';
+        html += '<div class="oc-brand">';
+        if (offer.brand && offer.brand.logo) {
+            html += '<img src="' + offer.brand.logo + '" alt="' + escapeHtml(offer.brand.name) + '" loading="lazy">';
         }
-
-        if (p.calories > 0) {
-            html += '<div class="pc-meta"><span><i class="fa-solid fa-fire"></i> ' + p.calories + ' cal</span></div>';
-        }
-
-        // Footer: original price struck through + offer price
-        html += '<div class="pc-footer">';
-        html += '<div class="pc-prices">';
-        if (p.formatted_regular) {
-            html += '<span class="pc-original-price">' + p.formatted_regular + '</span>';
-        }
-        if (p.formatted_offer_price) {
-            html += '<span class="pc-current-price">' + p.formatted_offer_price + '</span>';
-        } else {
-            html += '<span class="pc-current-price" style="font-size:0.85rem;color:var(--muted);">N/A</span>';
-        }
-        html += '</div>';
-        html += '<a href="' + p.url + '" class="pc-view-btn">View</a>';
+        html += '<a href="' + offer.brand.url + '">' + escapeHtml(offer.brand ? offer.brand.name : '') + '</a>';
         html += '</div>';
 
-        if (p.formatted_saved) {
-            html += '<div style="font-size:0.72rem;color:var(--success);font-weight:600;margin-top:0.4rem;"><i class="fa-solid fa-tag" style="margin-right:0.25rem;"></i>' + p.formatted_saved + '</div>';
+        html += '<h4 class="oc-title"><a href="' + offer.url + '" style="color:var(--text);">' + escapeHtml(offer.title) + '</a></h4>';
+
+        if (offer.description) {
+            var plainDesc = $('<div>').html(offer.description).text();
+            if (plainDesc.length > 90) plainDesc = plainDesc.substring(0, 87) + '...';
+            html += '<p class="oc-desc">' + escapeHtml(plainDesc) + '</p>';
         }
 
-        html += '</div>'; // pc-body
-        html += '</div>'; // product-card
+        html += '<div class="oc-footer">';
+        html += '<div class="oc-discount">' + offer.discount_percent + '% OFF</div>';
+        if (offer.coupon_code) {
+            html += '<span class="oc-code btn-copy-coupon" title="Click to copy" style="cursor:pointer;" data-code="' + escapeHtml(offer.coupon_code) + '">' + escapeHtml(offer.coupon_code) + '</span>';
+        }
+        html += '</div>';
+
+        if (offer.days_remaining > 0 && offer.days_remaining <= 7 && offer.status_label !== 'expired') {
+            html += '<div style="margin-top:0.6rem;font-size:0.75rem;color:var(--warning);font-weight:600;"><i class="fa-solid fa-clock"></i> ' + offer.days_remaining + ' days left</div>';
+        }
+
+        html += '<a href="' + offer.url + '" class="pc-view-btn" style="display:block;text-align:center;margin-top:0.85rem;">View Offer</a>';
+
+        html += '</div>'; // oc-body
+        html += '</div>'; // offer-card
+        html += '</div>'; // col
 
         return html;
     }
 
-    // Quick view & copy link delegation
-    $(document).on('click', '.btn-quick-view', function (e) {
+    // Copy coupon code on click (delegated)
+    $(document).on('click', '.btn-copy-coupon', function (e) {
         e.preventDefault();
-        e.stopPropagation();
-        var slug = $(this).data('slug');
-        if (slug && window.openQuickView) {
-            window.openQuickView(slug);
-        }
-    });
-
-    $(document).on('click', '.btn-copy-link', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        var url = $(this).data('url');
-        if (url && window.copyToClipboard) {
-            window.copyToClipboard(url, 'Product link copied!');
-        }
-    });
-
-    // Coupon copy delegation
-    $(document).on('click', '.btn-copy-coupon', function () {
         var code = $(this).data('code');
         if (code && window.copyToClipboard) {
-            window.copyToClipboard(code, 'Coupon code "' + code + '" copied!');
+            window.copyToClipboard(String(code), 'Coupon code copied!');
         }
     });
 
     // ============================================================
-    // RENDER PAGINATION
+    // PAGINATION & COUNT
     // ============================================================
     function renderPagination(pagination) {
         if (!window.buildPagination) return;
 
         var html = window.buildPagination(pagination);
         $paginationWrap.html(html);
+        $paginationWrap.show();
 
         window.bindPagination($paginationWrap, function (page) {
             state.page = page;
-            loadProductsOnly();
-            scrollToProducts();
+            loadOffers();
+            scrollToTop();
         });
     }
 
-    // ============================================================
-    // UPDATE COUNT
-    // ============================================================
     function updateCount(total, page, perPage) {
         if (!$countEl.length) return;
 
         if (total === 0) {
-            $countEl.html('No eligible products found');
+            $countEl.html('No offers found');
         } else {
             var start = (page - 1) * perPage + 1;
             var end = Math.min(page * perPage, total);
-            $countEl.html('Showing <strong>' + start + '–' + end + '</strong> of <strong>' + total + '</strong> products');
+            $countEl.html('Showing <strong>' + start + '–' + end + '</strong> of <strong>' + total + '</strong> offers');
         }
     }
 
-    // ============================================================
-    // RENDER OTHER OFFERS FROM SAME BRAND
-    // ============================================================
-    function renderOtherOffers(offers) {
-        var $container = $('#od-other-offers');
-        if (!$container.length) return;
-
-        if (!offers || offers.length === 0) {
-            $container.closest('#od-other-offers-section').hide();
-            return;
-        }
-
-        var html = '';
-        $.each(offers, function (i, offer) {
-            html += '<div class="offer-card" data-aos="fade-up" data-aos-delay="' + (i * 60) + '">';
-            html += '<div class="oc-body">';
-            html += '<h4 class="oc-title"><a href="' + BASE_URL + '/offers/' + offer.slug + '" style="color:var(--text);">' + escapeHtml(offer.title) + '</a></h4>';
-            html += '<div class="oc-footer">';
-            html += '<div class="oc-discount">' + offer.discount_percent + '% OFF</div>';
-            if (offer.coupon_code) {
-                html += '<span class="oc-code btn-copy-coupon" data-code="' + escapeHtml(offer.coupon_code) + '" title="Click to copy" style="cursor:pointer;">' + escapeHtml(offer.coupon_code) + '</span>';
-            }
-            html += '</div>';
-            if (offer.days_remaining > 0) {
-                html += '<div style="margin-top:0.6rem;font-size:0.75rem;color:var(--muted);"><i class="fa-solid fa-clock" style="margin-right:0.25rem;"></i>' + offer.days_remaining + ' days left</div>';
-            }
-            html += '</div>';
-            html += '</div>';
-        });
-
-        $container.html(html);
-    }
-
-    // ============================================================
-    // SHARE BUTTONS
-    // ============================================================
-    function initShareButtons(offer, brand) {
-        var pageUrl = window.location.href;
-        var pageTitle = offer.title + ' — ' + (brand ? brand.name : 'FoodScope');
-
-        $(document).on('click', '.pd-share-copy', function () {
-            if (window.copyToClipboard) {
-                window.copyToClipboard(pageUrl, 'Offer link copied to clipboard!');
-            }
-        });
-
-        $(document).on('click', '.pd-share-facebook', function () {
-            window.open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(pageUrl), '_blank', 'width=600,height=400');
-        });
-
-        $(document).on('click', '.pd-share-twitter', function () {
-            var text = encodeURIComponent('Check out this offer: ' + offer.title + '!');
-            window.open('https://twitter.com/intent/tweet?text=' + text + '&url=' + encodeURIComponent(pageUrl), '_blank', 'width=600,height=400');
-        });
-
-        $(document).on('click', '.pd-share-whatsapp', function () {
-            var text = encodeURIComponent(offer.title + ' — ' + pageUrl);
-            window.open('https://wa.me/?text=' + text, '_blank');
-        });
-
-        $(document).on('click', '.pd-share-linkedin', function () {
-            window.open('https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(pageUrl), '_blank', 'width=600,height=400');
-        });
-
-        $(document).on('click', '.pd-share-email', function () {
-            var subject = encodeURIComponent(pageTitle);
-            var body = encodeURIComponent('Check out this offer: ' + pageUrl);
-            window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
-        });
-    }
-
-    // ============================================================
-    // SCROLL TO PRODUCTS SECTION
-    // ============================================================
-    function scrollToProducts() {
+    function scrollToTop() {
         var offset = $('#main-header').outerHeight() + 20;
-        var $target = $('#od-products-toolbar');
+        var $target = $('#offers-toolbar');
         if ($target.length) {
-            $('html, body').animate({
-                scrollTop: $target.offset().top - offset
-            }, 400, 'swing');
+            $('html, body').animate({ scrollTop: $target.offset().top - offset }, 400, 'swing');
         }
     }
 
     // ============================================================
-    // SKELETON / ERROR / 404 / EMPTY STATES
+    // SKELETON / EMPTY / ERROR STATES
     // ============================================================
-    function showPageSkeleton() {
-        var $pageSkeleton = $('#offer-page-skeleton');
-        if ($pageSkeleton.length) {
-            $pageSkeleton.show();
-            $('#offer-detail-content').hide();
-        }
-    }
-
-    function hidePageSkeleton() {
-        var $pageSkeleton = $('#offer-page-skeleton');
-        if ($pageSkeleton.length) {
-            $pageSkeleton.hide();
-            $('#offer-detail-content').show();
-        }
-    }
-
-    function showProductsSkeleton() {
+    function showSkeleton() {
         if ($skeletonWrap.length) {
             $skeletonWrap.show();
-            $productsGrid.hide();
+            $grid.hide();
             $paginationWrap.hide();
-            $skeletonWrap.html(window.skeletonCards ? window.skeletonCards(state.per_page, 'product') : '');
-        } else {
-            $productsGrid.html(window.skeletonCards ? window.skeletonCards(state.per_page, 'product') : '');
         }
     }
 
-    function hideProductsSkeleton() {
+    function hideSkeleton() {
         if ($skeletonWrap.length) {
             $skeletonWrap.hide();
-            $productsGrid.show();
+            $grid.show();
             $paginationWrap.show();
         }
     }
 
-    function showEmptyProducts() {
+    function showEmpty() {
         var searchMsg = state.search ? ' matching "<strong>' + escapeHtml(state.search) + '</strong>"' : '';
+        var brandMsg = state.brand_ids.length ? ' for the selected brands' : '';
 
-        $productsGrid.html(
+        $('#offers-empty').html(
             '<div style="grid-column:1/-1;text-align:center;padding:3rem 2rem;">' +
-            '<i class="fa-solid fa-utensils" style="font-size:2.5rem;color:var(--muted);opacity:0.3;margin-bottom:1rem;display:block;"></i>' +
-            '<h3 style="font-family:var(--font-display);font-size:1.2rem;margin-bottom:0.5rem;">No eligible products found' + searchMsg + '</h3>' +
-            '<p style="color:var(--text-secondary);font-size:0.9rem;">Try a different search term.</p>' +
+            '<i class="fa-solid fa-tag" style="font-size:2.5rem;color:var(--muted);opacity:0.3;margin-bottom:1rem;display:block;"></i>' +
+            '<h3 style="font-family:var(--font-display);font-size:1.2rem;margin-bottom:0.5rem;">No offers found' + searchMsg + brandMsg + '</h3>' +
+            '<p style="color:var(--text-secondary);font-size:0.9rem;">Try a different filter or search term.</p>' +
+            '<button class="btn-reset-offer-filters filter-reset-btn" style="max-width:200px;margin:1rem auto 0;">Clear Filters</button>' +
             '</div>'
-        );
+        ).show();
+        $paginationWrap.hide();
+    }
+
+    function hideEmpty() {
+        $('#offers-empty').hide();
     }
 
     function showError(msg) {
-        hidePageSkeleton();
-        var $content = $('#offer-detail-content');
-        if ($content.length) {
-            $content.html(
-                '<div style="text-align:center;padding:4rem 2rem;">' +
-                '<i class="fa-solid fa-exclamation-triangle" style="font-size:3rem;color:var(--danger);margin-bottom:1.5rem;display:block;"></i>' +
-                '<h2 style="font-family:var(--font-display);font-size:1.5rem;margin-bottom:0.75rem;">Something went wrong</h2>' +
-                '<p style="color:var(--text-secondary);max-width:450px;margin:0 auto 1.5rem;">' + escapeHtml(msg) + '</p>' +
-                '<a href="' + BASE_URL + '/offers" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.65rem 1.5rem;border-radius:var(--radius-full);background:var(--primary);color:#fff;font-weight:600;font-size:0.9rem;">' +
-                '<i class="fa-solid fa-arrow-left" style="font-size:0.75rem;"></i> Back to Offers</a>' +
-                '</div>'
-            );
-            $content.show();
-        }
+        hideSkeleton();
+        $grid.hide();
+        $paginationWrap.hide();
+        $('#offers-empty').hide();
+        $('#offers-error').html(
+            '<div style="text-align:center;padding:4rem 2rem;">' +
+            '<i class="fa-solid fa-exclamation-triangle" style="font-size:3rem;color:var(--danger);margin-bottom:1.5rem;display:block;"></i>' +
+            '<h2 style="font-family:var(--font-display);font-size:1.5rem;margin-bottom:0.75rem;">Something went wrong</h2>' +
+            '<p style="color:var(--text-secondary);max-width:450px;margin:0 auto 1.5rem;">' + escapeHtml(msg) + '</p>' +
+            '<button class="btn-retry-offers" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.65rem 1.5rem;border-radius:var(--radius-full);background:var(--primary);color:#fff;font-weight:600;font-size:0.9rem;border:none;cursor:pointer;">' +
+            '<i class="fa-solid fa-rotate-right" style="font-size:0.75rem;"></i> Try Again</button>' +
+            '</div>'
+        ).show();
     }
 
-    function show404() {
-        hidePageSkeleton();
-        var $content = $('#offer-detail-content');
-        if ($content.length) {
-            $content.html(
-                '<div class="error-page">' +
-                '<div class="error-code">404</div>' +
-                '<h2 class="error-title">Offer Not Found</h2>' +
-                '<p class="error-desc">The offer you\'re looking for doesn\'t exist, has expired, or has been removed.</p>' +
-                '<a href="' + BASE_URL + '/offers" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.65rem 1.5rem;border-radius:var(--radius-full);background:var(--primary);color:#fff;font-weight:600;font-size:0.9rem;">' +
-                '<i class="fa-solid fa-arrow-left" style="font-size:0.75rem;"></i> Browse All Offers</a>' +
-                '</div>'
-            );
-            $content.show();
-        }
+    function hideError() {
+        $('#offers-error').hide();
     }
 
     // ============================================================
-    // BIND EVENTS (called once after first load)
+    // BIND EVENTS
     // ============================================================
-    var eventsBound = false;
-
     function bindEvents() {
-        if (eventsBound) return;
-        eventsBound = true;
+        // --- Brand checkboxes (desktop + mobile, multi-select, pending only) ---
+        $(document).on('change', '#filter-brands input[type="checkbox"], #filter-brands-mobile input[type="checkbox"]', function () {
+            var val = parseInt($(this).val());
+            var checked = $(this).is(':checked');
+
+            if (checked && pending.brand_ids.indexOf(val) === -1) {
+                pending.brand_ids.push(val);
+            } else if (!checked) {
+                pending.brand_ids = pending.brand_ids.filter(function (v) { return v !== val; });
+            }
+
+            $('#filter-brands input[value="' + val + '"], #filter-brands-mobile input[value="' + val + '"]').prop('checked', checked);
+        });
+
+        // --- Discount range slider (desktop + mobile, pending only) ---
+        $(document).on('input', '#offer-filter-discount, #offer-filter-discount-mobile', function () {
+            var val = parseFloat($(this).val());
+            pending.min_discount = val;
+            $('#offer-filter-discount, #offer-filter-discount-mobile').val(val);
+            $('#offer-discount-max-label, #offer-discount-max-label-mobile').text(Math.round(val) + '%+');
+        });
 
         // --- Search input (debounced) ---
         var searchTimer = null;
-        $(document).on('input', '#od-product-search', function () {
+        $(document).on('input', '#offer-search-input', function () {
             var val = $(this).val().trim();
             clearTimeout(searchTimer);
             searchTimer = setTimeout(function () {
                 state.search = val;
                 state.page = 1;
                 updateUrlParams(true);
-                loadProductsOnly();
+                loadOffers();
             }, 500);
         });
 
-        // --- Search form submit ---
-        $(document).on('submit', '#od-product-search-form', function (e) {
+        $(document).on('submit', '#offer-search-form', function (e) {
             e.preventDefault();
-            var val = $(this).find('#od-product-search').val().trim();
-            state.search = val;
+            state.search = $('#offer-search-input').val().trim();
             state.page = 1;
             updateUrlParams(true);
-            loadProductsOnly();
+            loadOffers();
         });
 
-        // --- Sort dropdown ---
-        $(document).on('change', '#od-product-sort', function () {
+        // --- Sort dropdown (desktop + mobile, applies immediately) ---
+        $(document).on('change', '#offer-sort-select, #offer-sort-select-mobile', function () {
             state.sort = $(this).val();
+            $('#offer-sort-select, #offer-sort-select-mobile').val(state.sort);
             state.page = 1;
             updateUrlParams(true);
-            loadProductsOnly();
+            loadOffers();
+        });
+
+        // --- Show expired toggle (applies immediately) ---
+        $(document).on('change', '#offer-expired-toggle, #offer-expired-toggle-mobile', function () {
+            state.show_expired = $(this).is(':checked');
+            $('#offer-expired-toggle, #offer-expired-toggle-mobile').prop('checked', state.show_expired);
+            state.page = 1;
+            updateUrlParams(true);
+            loadOffers();
+        });
+
+        // --- Apply Filters button (desktop + mobile) ---
+        $(document).on('click', '#btn-apply-offer-filters, #btn-apply-offer-filters-mobile', function () {
+            state.brand_ids = pending.brand_ids.slice();
+            state.min_discount = pending.min_discount;
+            state.page = 1;
+            updateUrlParams(true);
+            loadOffers();
+            closeMobileFilter();
+        });
+
+        // --- Reset Filters button (desktop + mobile + empty-state) ---
+        $(document).on('click', '#btn-reset-offer-filters, #btn-reset-offer-filters-mobile, .btn-reset-offer-filters', function () {
+            state.brand_ids = [];
+            state.min_discount = null;
+            state.search = '';
+            state.sort = 'discount_high';
+            state.show_expired = false;
+            state.page = 1;
+
+            pending.brand_ids = [];
+            pending.min_discount = null;
+
+            $('#filter-brands input[type="checkbox"], #filter-brands-mobile input[type="checkbox"]').prop('checked', false);
+            $('#offer-search-input').val('');
+            $('#offer-sort-select, #offer-sort-select-mobile').val('discount_high');
+            $('#offer-expired-toggle, #offer-expired-toggle-mobile').prop('checked', false);
+
+            updateUrlParams(true);
+            loadOffers();
+            closeMobileFilter();
+        });
+
+        // --- Retry on network error ---
+        $(document).on('click', '.btn-retry-offers', function () {
+            loadOffers();
+        });
+
+        // --- Mobile filter drawer open/close ---
+        $(document).on('click', '#btn-mobile-offer-filter', function () {
+            $('#offer-mobile-filter-panel').css('left', '0');
+            $('#offer-mobile-filter-overlay').show();
+            $('body').css('overflow', 'hidden');
+        });
+
+        $(document).on('click', '#btn-close-offer-mobile-filter, #offer-mobile-filter-overlay', function () {
+            closeMobileFilter();
         });
 
         // --- Browser back/forward ---
@@ -706,18 +487,33 @@
                 var s = e.originalEvent.state;
                 state.page = s.page || 1;
                 state.per_page = s.per_page || 12;
+                state.brand_ids = s.brand_ids || [];
+                state.min_discount = (s.min_discount !== undefined) ? s.min_discount : null;
                 state.search = s.search || '';
-                state.sort = s.sort || 'newest';
+                state.sort = s.sort || 'discount_high';
+                state.show_expired = s.show_expired || false;
 
-                var $input = $('#od-product-search');
-                if ($input.length) $input.val(state.search);
+                pending.brand_ids = state.brand_ids.slice();
+                pending.min_discount = state.min_discount;
 
-                var $sort = $('#od-product-sort');
-                if ($sort.length) $sort.val(state.sort);
+                $('#offer-search-input').val(state.search);
+                $('#offer-sort-select, #offer-sort-select-mobile').val(state.sort);
+                $('#offer-expired-toggle, #offer-expired-toggle-mobile').prop('checked', state.show_expired);
 
-                loadProductsOnly();
+                $('#filter-brands input[type="checkbox"], #filter-brands-mobile input[type="checkbox"]').each(function () {
+                    var val = parseInt($(this).val());
+                    $(this).prop('checked', state.brand_ids.indexOf(val) !== -1);
+                });
+
+                loadOffers();
             }
         });
+    }
+
+    function closeMobileFilter() {
+        $('#offer-mobile-filter-panel').css('left', '-320px');
+        $('#offer-mobile-filter-overlay').hide();
+        $('body').css('overflow', '');
     }
 
     // ============================================================
@@ -728,14 +524,6 @@
         var div = document.createElement('div');
         div.appendChild(document.createTextNode(str));
         return div.innerHTML;
-    }
-
-    function formatDate(dateStr) {
-        if (!dateStr) return '';
-        var d = new Date(dateStr + 'T00:00:00');
-        if (isNaN(d.getTime())) return dateStr;
-        var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        return months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
     }
 
 })();

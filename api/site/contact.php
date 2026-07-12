@@ -1,5 +1,6 @@
 <?php
 // Load config and functions
+require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/../../config/database-config.php';
 
 // Set JSON response header

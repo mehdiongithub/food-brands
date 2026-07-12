@@ -27,6 +27,9 @@ RewriteRule ^category/([^/]+)/?$ category.php?slug=$1 [L,QSA]
 # Offers
 RewriteRule ^offers/?$ offers.php [L]
 
+# Offer detail: /offers/some-offer-slug
+RewriteRule ^offers/([^/]+)/?$ offer-detail.php?slug=$1 [L,QSA]
+
 # FAQ
 RewriteRule ^faq/?$ faq.php [L]
 

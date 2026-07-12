@@ -57,7 +57,7 @@ if ($currentFile === 'brand') {
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@9/swiper-bundle.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css">
-<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css">
+<link rel="stylesheet" href="<?php echo BASE_URL; ?>/assets/css/style.css?v=<?php echo @filemtime(BASE_PATH . '/assets/css/style.css') ?: time(); ?>">
 <?php if (isset($schemaJson)): ?>
 <script type="application/ld+json"><?php echo $schemaJson; ?></script>
 <?php endif; ?>
@@ -73,13 +73,6 @@ if ($currentFile === 'brand') {
     <?php endif; ?>
     <div class="preloader-bar"><div class="preloader-bar-inner"></div></div>
     <div class="preloader-dots"><span></span><span></span><span></span></div>
-</div>
-
-<!-- Country Change Overlay -->
-<div id="country-overlay">
-    <img class="flag-icon" src="" alt="">
-    <div class="country-name"></div>
-    <div class="loader-spinner"></div>
 </div>
 
 <!-- Header -->
@@ -108,21 +101,10 @@ if ($currentFile === 'brand') {
 
         <!-- Header Actions -->
         <div class="header-actions">
-            <!-- Country Selector -->
-            <div class="country-selector" id="country-selector">
+            <!-- Country Display (read-only — auto-detected from visitor IP, not switchable) -->
+            <div class="country-selector" id="country-selector" style="cursor: default;">
                 <img class="flag" src="<?php echo asset_url($country['flag']); ?>" alt="<?php echo clean($country['name']); ?>" style="width:22px;height:16px;object-fit:cover;border-radius:2px;">
                 <span class="country-label" style="font-size:0.82rem;"><?php echo clean($country['name']); ?></span>
-                <i class="fa-solid fa-chevron-down chevron"></i>
-                <!-- Dropdown -->
-                <div class="country-dropdown" id="country-dropdown">
-                    <div style="padding:0.4rem 0.75rem 0.6rem;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);">Select Country</div>
-                    <div id="country-dropdown-list">
-                        <!-- Populated by AJAX -->
-                        <div style="padding:1rem;text-align:center;color:var(--muted);font-size:0.85rem;">
-                            <i class="fa-solid fa-spinner fa-spin"></i> Loading...
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <!-- Search Button -->
@@ -158,6 +140,51 @@ if ($currentFile === 'brand') {
         </div>
     </div>
 </div>
+
+<script>
+// Vanilla-JS fallback for the search modal — guarantees the modal opens
+// even if jQuery is slow to load, fails to load, or common.js hasn't
+// initialized yet. Safe to run alongside the jQuery-based handlers in
+// common.js since it only ever ADDS the "active" class (idempotent).
+(function () {
+    function bindSearchFallback() {
+        var btn = document.getElementById('header-search-btn');
+        var overlay = document.getElementById('search-overlay');
+        var input = document.getElementById('search-input');
+        var closeBtn = document.getElementById('search-close-btn');
+        if (!btn || !overlay) return;
+
+        btn.addEventListener('click', function () {
+            overlay.classList.add('active');
+            setTimeout(function () { if (input) input.focus(); }, 150);
+        });
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function () {
+                overlay.classList.remove('active');
+            });
+        }
+
+        overlay.addEventListener('click', function (e) {
+            if (e.target === overlay) {
+                overlay.classList.remove('active');
+            }
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                overlay.classList.remove('active');
+            }
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bindSearchFallback);
+    } else {
+        bindSearchFallback();
+    }
+})();
+</script>
 
 <!-- Mobile Nav Overlay -->
 <div id="mobile-nav-overlay" style="position:fixed;inset:0;z-index:999;background:rgba(0,0,0,0.5);display:none;"></div>
