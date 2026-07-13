@@ -115,67 +115,47 @@
     }
 
     function buildFeaturedBrandSlide(brand) {
-        var html = '<div class="swiper-slide">';
-        html += '<div class="featured-brand-card" data-aos="fade-up" data-aos-delay="' + (50) + '">';
+    var html = '<div class="swiper-slide">';
+    html += '<div class="featured-brand-card" data-aos="fade-up" data-aos-delay="' + (50) + '">';
 
-        // Cover image
-        html += '<div class="fb-cover">';
-        if (brand.cover_image) {
-            html += '<img src="' + brand.cover_image + '" alt="' + escapeHtml(brand.name) + '" loading="lazy">';
-        } else {
-            html += '<div style="width:100%;height:100%;background:linear-gradient(135deg,var(--secondary),#2D1B4E);display:flex;align-items:center;justify-content:center;"><span style="font-family:var(--font-display);font-size:2rem;font-weight:900;color:rgba(255,255,255,0.2);">' + escapeHtml(brand.name.charAt(0)) + '</span></div>';
-        }
-        html += '</div>';
-
-        // Logo
-        html += '<div class="fb-logo">';
-        if (brand.logo) {
-            html += '<img src="' + brand.logo + '" alt="' + escapeHtml(brand.name) + '" loading="lazy">';
-        } else {
-            html += '<span style="font-family:var(--font-display);font-size:1.2rem;font-weight:900;color:var(--primary);">' + escapeHtml(brand.name.charAt(0)) + '</span>';
-        }
-        html += '</div>';
-
-        // Body
-        html += '<div class="fb-body">';
-        html += '<h3 class="fb-name">' + escapeHtml(brand.name) + '</h3>';
-        if (brand.short_description) {
-            html += '<p class="fb-desc">' + escapeHtml(brand.short_description) + '</p>';
-        }
-
-        // Country flags
-        if (brand.country_flags && brand.country_flags.length > 0) {
-            html += '<div class="fb-countries">';
-            $.each(brand.country_flags, function (j, flag) {
-                html += '<span class="fb-country-flag"><img src="' + flag + '" alt="" style="width:22px;height:16px;object-fit:cover;border-radius:2px;" loading="lazy"></span>';
-            });
-            html += '</div>';
-        }
-
-        // Category pills
-        if (brand.categories && brand.categories.length > 0) {
-            html += '<div class="fb-categories">';
-            html += '<div class="swiper fb-cat-swiper">';
-            html += '<div class="swiper-wrapper">';
-            $.each(brand.categories, function (k, cat) {
-                html += '<div class="swiper-slide"><span class="fb-cat-pill" data-cat-slug="' + cat.slug + '">' + escapeHtml(cat.name) + '</span></div>';
-            });
-            html += '</div>';
-            html += '</div>';
-            html += '</div>';
-        }
-
-        // View all link
-        html += '<a href="' + brand.url + '" class="fb-view-all">';
-        html += '  View Menu <i class="fa-solid fa-arrow-right" style="font-size:0.75rem;"></i>';
-        html += '</a>';
-
-        html += '</div>'; // fb-body
-        html += '</div>'; // featured-brand-card
-        html += '</div>'; // swiper-slide
-
-        return html;
+    // Cover image (now a link)
+    html += '<a href="' + brand.url + '" class="fb-cover">';
+    if (brand.cover_image) {
+        html += '<img src="' + brand.cover_image + '" alt="' + escapeHtml(brand.name) + '" loading="lazy">';
+    } else {
+        html += '<div style="width:100%;height:100%;background:linear-gradient(135deg,var(--secondary),#2D1B4E);display:flex;align-items:center;justify-content:center;"><span style="font-family:var(--font-display);font-size:2rem;font-weight:900;color:rgba(255,255,255,0.2);">' + escapeHtml(brand.name.charAt(0)) + '</span></div>';
     }
+    html += '</a>';
+
+    // Logo
+    html += '<div class="fb-logo">';
+    if (brand.logo) {
+        html += '<img src="' + brand.logo + '" alt="' + escapeHtml(brand.name) + '" loading="lazy">';
+    } else {
+        html += '<span style="font-family:var(--font-display);font-size:1.2rem;font-weight:900;color:var(--primary);">' + escapeHtml(brand.name.charAt(0)) + '</span>';
+    }
+    html += '</div>';
+
+    // Body
+    html += '<div class="fb-body">';
+    html += '<h3 class="fb-name">' + escapeHtml(brand.name) + '</h3>';
+    if (brand.short_description) {
+        html += '<p class="fb-desc">' + escapeHtml(brand.short_description) + '</p>';
+    }
+
+    // View all link — pushed to the right
+    html += '<div style="display:flex;justify-content:flex-end;">';
+    html += '<a href="' + brand.url + '" class="fb-view-all">';
+    html += 'View Menu <i class="fa-solid fa-arrow-right" style="font-size:0.75rem;"></i>';
+    html += '</a>';
+    html += '</div>';
+
+    html += '</div>'; // fb-body
+    html += '</div>'; // featured-brand-card
+    html += '</div>'; // swiper-slide
+
+    return html;
+}
 
     function initFeaturedBrandsSwiper($container) {
         new Swiper($container.find('.fb-cat-swiper')[0], {

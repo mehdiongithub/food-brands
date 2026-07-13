@@ -149,11 +149,9 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="pd-share" id="pd-share-buttons">
                             <span style="font-size:0.82rem;font-weight:600;color:var(--text-secondary);margin-right:0.75rem;">Share:</span>
                             <button class="pd-share-btn pd-share-copy" title="Copy Link"><i class="fa-solid fa-link"></i></button>
-                            <button class="pd-share-btn pd-share-whatsapp" title="Share on WhatsApp"><i class="fa-brands fa-whatsapp"></i></button>
                             <button class="pd-share-btn pd-share-facebook" title="Share on Facebook"><i class="fa-brands fa-facebook-f"></i></button>
-                            <button class="pd-share-btn pd-share-twitter" title="Share on X"><i class="fa-brands fa-x-twitter"></i></button>
                             <button class="pd-share-btn pd-share-linkedin" title="Share on LinkedIn"><i class="fa-brands fa-linkedin-in"></i></button>
-                            <button class="pd-share-btn pd-share-email" title="Share via Email"><i class="fa-solid fa-envelope"></i></button>
+                            <button class="pd-share-btn pd-share-instagram" title="Share via Instagram"><i class="fa-brands fa-instagram"></i></button>
                         </div>
                     </div>
                 </div>
@@ -185,23 +183,6 @@ require_once __DIR__ . '/includes/header.php';
                     <div id="pd-ingredients" style="background:var(--surface);border-radius:var(--radius-md);padding:1.25rem;border:1px solid var(--border-light);min-height:200px;" data-aos="fade-up" data-aos-delay="100">
                         <!-- Populated by product-detail.js -->
                     </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- ===== COUNTRY PRICE COMPARISON ===== -->
-    <section class="pd-country-prices-section section-padding" style="padding-top:2rem;padding-bottom:2rem;">
-        <div class="container">
-            <div style="max-width:900px;margin:0 auto;">
-                <div class="section-header" data-aos="fade-up">
-                    <div class="section-label">Price Comparison</div>
-                    <h2 class="section-title">Prices Across Countries</h2>
-                    <p class="section-desc">See how the price of this product varies in different countries.</p>
-                </div>
-
-                <div id="pd-country-prices" style="background:var(--surface);border-radius:var(--radius-md);padding:1.5rem;border:1px solid var(--border-light);overflow-x:auto;" data-aos="fade-up" data-aos-delay="50">
-                    <!-- Populated by product-detail.js -->
                 </div>
             </div>
         </div>

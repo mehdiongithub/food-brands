@@ -54,7 +54,6 @@
             renderDetailsGrid(res.product, res.current_price);
             renderNutrition(res.nutrition);
             renderIngredients(res.ingredients);
-            renderCountryPrices(res.country_prices);
             renderOffers(res.offers);
             renderRelatedProducts(res.related_products);
             initShareButtons(res.product);
@@ -332,58 +331,6 @@
     }
 
     // ============================================================
-    // RENDER COUNTRY PRICE COMPARISON TABLE
-    // ============================================================
-    function renderCountryPrices(prices) {
-        var $container = $('#pd-country-prices');
-        if (!$container.length) return;
-
-        if (!prices || prices.length === 0) {
-            $container.closest('.pd-country-prices-section').hide();
-            return;
-        }
-
-        var html = '<div style="overflow-x:auto;">';
-        html += '<table class="nutrition-table">';
-
-        // Header
-        html += '<thead><tr>';
-        html += '<th>Country</th>';
-        html += '<th>Regular Price</th>';
-        html += '<th>Discount Price</th>';
-        html += '<th>You Save</th>';
-        html += '</tr></thead>';
-
-        html += '<tbody>';
-        $.each(prices, function (i, cp) {
-            var rowStyle = cp.is_current ? 'background:rgba(232,93,4,0.05);font-weight:600;' : '';
-            var currentBadge = cp.is_current ? ' <span style="font-size:0.65rem;padding:0.1rem 0.4rem;border-radius:var(--radius-full);background:var(--primary);color:#fff;vertical-align:middle;margin-left:0.3rem;">Current</span>' : '';
-
-            var savedHtml = '<span style="color:var(--muted);">—</span>';
-            if (cp.has_discount && cp.regular_price && cp.discount_price) {
-                var saved = cp.regular_price - cp.discount_price;
-                var savedPercent = Math.round((saved / cp.regular_price) * 100);
-                savedHtml = '<span style="color:var(--success);font-weight:600;">' + cp.currency_symbol + numberFormat(saved) + ' (' + savedPercent + '%)</span>';
-            }
-
-            html += '<tr style="' + rowStyle + '">';
-            html += '<td>';
-            html += '  <div style="display:flex;align-items:center;gap:0.5rem;">';
-            html += '    <img src="' + cp.flag_url + '" alt="' + escapeHtml(cp.country_name) + '" style="width:24px;height:16px;object-fit:cover;border-radius:2px;">';
-            html += '    <span>' + escapeHtml(cp.country_name) + currentBadge + '</span>';
-            html += '  </div>';
-            html += '</td>';
-            html += '<td>' + (cp.formatted_regular || '<span style="color:var(--muted);">—</span>') + '</td>';
-            html += '<td>' + (cp.formatted_discount || '<span style="color:var(--muted);">—</span>') + '</td>';
-            html += '<td>' + savedHtml + '</td>';
-            html += '</tr>';
-        });
-        html += '</tbody></table></div>';
-
-        $container.html(html);
-    }
-
-    // ============================================================
     // RENDER OFFERS
     // ============================================================
     function renderOffers(offers) {
@@ -541,28 +488,14 @@
             window.open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(pageUrl), '_blank', 'width=600,height=400');
         });
 
-        // Twitter / X
-        $(document).on('click', '.pd-share-twitter', function () {
-            var text = encodeURIComponent('Check out ' + product.name + ' on FoodScope!');
-            window.open('https://twitter.com/intent/tweet?text=' + text + '&url=' + encodeURIComponent(pageUrl), '_blank', 'width=600,height=400');
-        });
-
-        // WhatsApp
-        $(document).on('click', '.pd-share-whatsapp', function () {
-            var text = encodeURIComponent(product.name + ' — ' + pageUrl);
-            window.open('https://wa.me/?text=' + text, '_blank');
-        });
-
         // LinkedIn
         $(document).on('click', '.pd-share-linkedin', function () {
             window.open('https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(pageUrl), '_blank', 'width=600,height=400');
         });
 
         // Email
-        $(document).on('click', '.pd-share-email', function () {
-            var subject = encodeURIComponent(pageTitle);
-            var body = encodeURIComponent('Check out this product: ' + pageUrl);
-            window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
+        $(document).on('click', '.pd-share-instagram', function () {
+            window.open('https://www.instagram.com/sharing/share-offsite/?url=' + encodeURIComponent(pageUrl), '_blank', 'width=600,height=400');
         });
     }
 
