@@ -56,8 +56,7 @@
             renderIngredients(res.ingredients);
             renderOffers(res.offers);
             renderRelatedProducts(res.related_products);
-            initShareButtons(res.product);
-
+          
             window.refreshAOS();
 
         }).fail(function () {
@@ -468,36 +467,6 @@
         return html;
     }
 
-    // ============================================================
-    // SHARE BUTTONS
-    // ============================================================
-    function initShareButtons(product) {
-        var pageUrl = window.location.href;
-        var pageTitle = product.name + ' — ' + (productData.brand ? productData.brand.name : 'FoodScope');
-        var pageImage = productData.images && productData.images[0] ? productData.images[0].image : '';
-
-        // Copy link button
-        $(document).on('click', '.pd-share-copy', function () {
-            if (window.copyToClipboard) {
-                window.copyToClipboard(pageUrl, 'Product link copied to clipboard!');
-            }
-        });
-
-        // Facebook
-        $(document).on('click', '.pd-share-facebook', function () {
-            window.open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(pageUrl), '_blank', 'width=600,height=400');
-        });
-
-        // LinkedIn
-        $(document).on('click', '.pd-share-linkedin', function () {
-            window.open('https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(pageUrl), '_blank', 'width=600,height=400');
-        });
-
-        // Email
-        $(document).on('click', '.pd-share-instagram', function () {
-            window.open('https://www.instagram.com/sharing/share-offsite/?url=' + encodeURIComponent(pageUrl), '_blank', 'width=600,height=400');
-        });
-    }
 
     // ============================================================
     // SKELETON / ERROR / 404 STATES

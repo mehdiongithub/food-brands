@@ -145,14 +145,6 @@ require_once __DIR__ . '/includes/header.php';
                             <!-- Populated by product-detail.js -->
                         </div>
 
-                        <!-- Share Buttons -->
-                        <div class="pd-share" id="pd-share-buttons">
-                            <span style="font-size:0.82rem;font-weight:600;color:var(--text-secondary);margin-right:0.75rem;">Share:</span>
-                            <button class="pd-share-btn pd-share-copy" title="Copy Link"><i class="fa-solid fa-link"></i></button>
-                            <button class="pd-share-btn pd-share-facebook" title="Share on Facebook"><i class="fa-brands fa-facebook-f"></i></button>
-                            <button class="pd-share-btn pd-share-linkedin" title="Share on LinkedIn"><i class="fa-brands fa-linkedin-in"></i></button>
-                            <button class="pd-share-btn pd-share-instagram" title="Share via Instagram"><i class="fa-brands fa-instagram"></i></button>
-                        </div>
                     </div>
                 </div>
             </div>
