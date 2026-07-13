@@ -8,13 +8,73 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete') {
         echo json_encode(["success" => false, "message" => "You don't have permission to delete ingredients."]);
         exit;
     }
+
     $id = (int)($_POST['id'] ?? 0);
-    if ($id > 0) {
-        $stmt = $pdo->prepare("DELETE FROM ingredients WHERE id = :id");
+    if ($id <= 0) {
+        echo json_encode(["success" => false, "message" => "Invalid ingredient ID"]);
+        exit;
+    }
+
+    try {
+        // --- Fetch the ingredient first — need name for the message ---
+        $stmt = $pdo->prepare("SELECT id, name FROM ingredients WHERE id = :id LIMIT 1");
         $stmt->execute([':id' => $id]);
-        echo json_encode(["success" => true]);
-    } else {
-        echo json_encode(["success" => false, "error" => "Invalid ID"]);
+        $ingredient = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$ingredient) {
+            echo json_encode(["success" => false, "message" => "Ingredient not found"]);
+            exit;
+        }
+
+        // --- Restrict delete: check every table that references this ingredient ---
+        $dependencies = [
+            ['product_ingredients', 'ingredient_id', 'product', 'products'],
+        ];
+
+        $usage = [];
+        foreach ($dependencies as [$table, $col, $singular, $plural]) {
+            $countStmt = $pdo->prepare("SELECT COUNT(*) FROM `$table` WHERE `$col` = :id");
+            $countStmt->execute([':id' => $id]);
+            $count = (int) $countStmt->fetchColumn();
+            if ($count > 0) {
+                $usage[] = $count . ' ' . ($count === 1 ? $singular : $plural);
+            }
+        }
+
+        if (!empty($usage)) {
+            $last = array_pop($usage);
+            $list = empty($usage) ? $last : implode(', ', $usage) . ' and ' . $last;
+
+            echo json_encode([
+                "success" => false,
+                "message" => "\"" . $ingredient['name'] . "\" cannot be deleted because it is linked to " . $list . ". Please remove or reassign these first."
+            ]);
+            exit;
+        }
+
+        // --- Safe to delete ---
+        $delStmt = $pdo->prepare("DELETE FROM ingredients WHERE id = :id");
+        $delStmt->execute([':id' => $id]);
+
+        echo json_encode([
+            "success" => true,
+            "message" => "Ingredient \"" . $ingredient['name'] . "\" deleted successfully."
+        ]);
+
+    } catch (PDOException $e) {
+        // Fallback safety net: FK constraint violation (e.g. a new dependent
+        // table was added later and this list wasn't updated)
+        if ($e->getCode() == 23000) {
+            echo json_encode([
+                "success" => false,
+                "message" => "This ingredient cannot be deleted because it's linked to existing products."
+            ]);
+        } else {
+            echo json_encode([
+                "success" => false,
+                "message" => "Database error: " . $e->getMessage()
+            ]);
+        }
     }
     exit;
 }

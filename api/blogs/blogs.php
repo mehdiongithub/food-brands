@@ -9,29 +9,42 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete') {
         echo json_encode(["success" => false, "message" => "You don't have permission to delete blogs."]);
         exit;
     }
+
     $id = (int)($_POST['id'] ?? 0);
-    if ($id > 0) {
-        // Fetch image path first so we can remove the file after DB delete
-        $imgStmt = $pdo->prepare("SELECT image FROM blogs WHERE id = :id");
-        $imgStmt->execute([':id' => $id]);
-        $existing = $imgStmt->fetch(PDO::FETCH_ASSOC);
+    if ($id <= 0) {
+        echo json_encode(["success" => false, "message" => "Invalid blog ID"]);
+        exit;
+    }
 
-        $stmt = $pdo->prepare("DELETE FROM blogs WHERE id = :id");
-        $stmt->execute([':id' => $id]);
+    // --- Fetch the blog first — need title (for message) and image (for cleanup) ---
+    $stmt = $pdo->prepare("SELECT id, title, image FROM blogs WHERE id = :id LIMIT 1");
+    $stmt->execute([':id' => $id]);
+    $blog = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($stmt->rowCount() > 0) {
-            if (!empty($existing['image'])) {
-                $fullPath = __DIR__ . '/../../' . $existing['image'];
-                if (file_exists($fullPath) && is_file($fullPath)) {
-                    @unlink($fullPath);
-                }
+    if (!$blog) {
+        echo json_encode(["success" => false, "message" => "Blog not found"]);
+        exit;
+    }
+
+    try {
+        $delStmt = $pdo->prepare("DELETE FROM blogs WHERE id = :id");
+        $delStmt->execute([':id' => $id]);
+
+        // Only after successful DB delete, remove the associated image file
+        if (!empty($blog['image'])) {
+            $fullPath = __DIR__ . '/../../' . $blog['image'];
+            if (file_exists($fullPath) && is_file($fullPath)) {
+                @unlink($fullPath);
             }
-            echo json_encode(["success" => true, "message" => "Blog deleted successfully."]);
-        } else {
-            echo json_encode(["success" => false, "message" => "Blog not found."]);
         }
-    } else {
-        echo json_encode(["success" => false, "error" => "Invalid ID"]);
+
+        echo json_encode([
+            "success" => true,
+            "message" => "Blog \"" . $blog['title'] . "\" deleted successfully."
+        ]);
+
+    } catch (PDOException $e) {
+        echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
     }
     exit;
 }

@@ -26,6 +26,35 @@ try {
         exit;
     }
 
+    // --- Restrict delete: check every table that references this category ---
+    // Each entry: [table, column, singular label, plural label]
+    $dependencies = [
+        ['brand_category', 'category_id', 'brand',   'brands'],
+        ['products',       'category_id', 'product', 'products'],
+    ];
+
+    $usage = [];
+    foreach ($dependencies as [$table, $col, $singular, $plural]) {
+        $countStmt = $pdo->prepare("SELECT COUNT(*) FROM `$table` WHERE `$col` = :id");
+        $countStmt->execute([':id' => $id]);
+        $count = (int) $countStmt->fetchColumn();
+        if ($count > 0) {
+            $usage[] = $count . ' ' . ($count === 1 ? $singular : $plural);
+        }
+    }
+
+    if (!empty($usage)) {
+        // Build a natural "A and B" list
+        $last = array_pop($usage);
+        $list = empty($usage) ? $last : implode(', ', $usage) . ' and ' . $last;
+
+        echo json_encode([
+            "success" => false,
+            "message" => "\"" . $category['name'] . "\" cannot be deleted because it is linked to " . $list . ". Please remove or reassign these first."
+        ]);
+        exit;
+    }
+
     // Delete the database row
     $deleteStmt = $pdo->prepare("DELETE FROM categories WHERE id = :id");
     $deleteStmt->execute([':id' => $id]);
@@ -44,7 +73,8 @@ try {
     ]);
 
 } catch (PDOException $e) {
-    // Common cause: FK constraint violation if brand_category references this category
+    // Fallback safety net: FK constraint violation (e.g. a new dependent table
+    // was added later and this list wasn't updated)
     if ($e->getCode() == 23000) {
         echo json_encode([
             "success" => false,

@@ -9,43 +9,52 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete') {
         echo json_encode(["success" => false, "message" => "You don't have permission to delete offers."]);
         exit;
     }
+
     $id = (int)($_POST['id'] ?? 0);
-    if ($id > 0) {
-        // Fetch image path first so we can remove the file after DB delete
-        $imgStmt = $pdo->prepare("SELECT image FROM offers WHERE id = :id");
-        $imgStmt->execute([':id' => $id]);
-        $existing = $imgStmt->fetch(PDO::FETCH_ASSOC);
+    if ($id <= 0) {
+        echo json_encode(["success" => false, "message" => "Invalid offer ID"]);
+        exit;
+    }
 
-        try {
-            $pdo->beginTransaction();
+    // --- Fetch the offer first — need title (for message) and image (for cleanup) ---
+    $stmt = $pdo->prepare("SELECT id, title, image FROM offers WHERE id = :id LIMIT 1");
+    $stmt->execute([':id' => $id]);
+    $offer = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            // Remove relationship rows first
-            $pdo->prepare("DELETE FROM offer_countries WHERE offer_id = :id")->execute([':id' => $id]);
+    if (!$offer) {
+        echo json_encode(["success" => false, "message" => "Offer not found"]);
+        exit;
+    }
 
-            $stmt = $pdo->prepare("DELETE FROM offers WHERE id = :id");
-            $stmt->execute([':id' => $id]);
+    try {
+        $pdo->beginTransaction();
 
-            $deleted = $stmt->rowCount() > 0;
+        // Remove relationship rows first (offer's own data — safe to cascade)
+        $pdo->prepare("DELETE FROM offer_countries WHERE offer_id = :id")->execute([':id' => $id]);
 
-            $pdo->commit();
+        $delStmt = $pdo->prepare("DELETE FROM offers WHERE id = :id");
+        $delStmt->execute([':id' => $id]);
 
-            if ($deleted) {
-                if (!empty($existing['image'])) {
-                    $fullPath = __DIR__ . '/../../' . $existing['image'];
-                    if (file_exists($fullPath) && is_file($fullPath)) {
-                        @unlink($fullPath);
-                    }
-                }
-                echo json_encode(["success" => true, "message" => "Offer deleted successfully."]);
-            } else {
-                echo json_encode(["success" => false, "message" => "Offer not found."]);
+        $pdo->commit();
+
+        // Only after successful commit: remove the physical image file
+        if (!empty($offer['image'])) {
+            $fullPath = __DIR__ . '/../../' . $offer['image'];
+            if (file_exists($fullPath) && is_file($fullPath)) {
+                @unlink($fullPath);
             }
-        } catch (PDOException $e) {
-            $pdo->rollBack();
-            echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
         }
-    } else {
-        echo json_encode(["success" => false, "error" => "Invalid ID"]);
+
+        echo json_encode([
+            "success" => true,
+            "message" => "Offer \"" . $offer['title'] . "\" deleted successfully."
+        ]);
+
+    } catch (PDOException $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
     }
     exit;
 }

@@ -75,6 +75,11 @@ function isActive($segment, $currentPath) {
          <i class="fas fa-pen-nib"></i><span>Blog Posts</span>
       </a>
 
+      <a class="sb-link <?= isActive('/admin/messages/', $currentPath) ?>"
+         href="<?= BASE_URL ?>/admin/messages/index.php">
+         <i class="fas fa-envelope"></i><span>Messages</span>
+      </a>
+
       <a class="sb-link <?= isActive('/admin/testimonials/', $currentPath) ?>"
          href="<?= BASE_URL ?>/admin/testimonials/index.php">
          <i class="fas fa-quote-right"></i><span>Testimonials</span>

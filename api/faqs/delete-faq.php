@@ -37,16 +37,8 @@ try {
     ]);
 
 } catch (PDOException $e) {
-    // Common cause: FK constraint violation if brand_country references this country
-    if ($e->getCode() == 23000) {
-        echo json_encode([
-            "success" => false,
-            "message" => "This FAQ cannot be deleted because it's linked to existing records."
-        ]);
-    } else {
-        echo json_encode([
-            "success" => false,
-            "message" => "Database error: " . $e->getMessage()
-        ]);
-    }
+    echo json_encode([
+        "success" => false,
+        "message" => "Database error: " . $e->getMessage()
+    ]);
 }

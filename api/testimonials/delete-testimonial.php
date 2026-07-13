@@ -42,7 +42,7 @@ try {
         }
     }
 
-    echo json_encode(["success" => true, "message" => "Testimonial deleted successfully."]);
+    echo json_encode(["success" => true, "message" => "Testimonial from \"" . $testimonial['name'] . "\" deleted successfully."]);
 
 } catch (PDOException $e) {
     echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);

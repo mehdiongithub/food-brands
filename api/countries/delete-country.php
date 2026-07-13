@@ -26,6 +26,36 @@ try {
         exit;
     }
 
+    // --- Restrict delete: check every table that references this country ---
+    // Each entry: [table, column, singular label, plural label]
+    $dependencies = [
+        ['brand_country',   'country_id', 'brand',         'brands'],
+        ['offer_countries', 'country_id', 'offer',         'offers'],
+        ['product_prices',  'country_id', 'product price', 'product prices'],
+    ];
+
+    $usage = [];
+    foreach ($dependencies as [$table, $col, $singular, $plural]) {
+        $countStmt = $pdo->prepare("SELECT COUNT(*) FROM `$table` WHERE `$col` = :id");
+        $countStmt->execute([':id' => $id]);
+        $count = (int) $countStmt->fetchColumn();
+        if ($count > 0) {
+            $usage[] = $count . ' ' . ($count === 1 ? $singular : $plural);
+        }
+    }
+
+    if (!empty($usage)) {
+        // Build a natural "A, B and C" list
+        $last = array_pop($usage);
+        $list = empty($usage) ? $last : implode(', ', $usage) . ' and ' . $last;
+
+        echo json_encode([
+            "success" => false,
+            "message" => "\"" . $country['name'] . "\" cannot be deleted because it is linked to " . $list . ". Please remove or reassign these first."
+        ]);
+        exit;
+    }
+
     // Delete the database row
     $deleteStmt = $pdo->prepare("DELETE FROM countries WHERE id = :id");
     $deleteStmt->execute([':id' => $id]);
@@ -44,11 +74,12 @@ try {
     ]);
 
 } catch (PDOException $e) {
-    // Common cause: FK constraint violation if brand_country references this country
+    // Fallback safety net: FK constraint violation (e.g. a new dependent table
+    // was added later and this list wasn't updated)
     if ($e->getCode() == 23000) {
         echo json_encode([
             "success" => false,
-            "message" => "This country cannot be deleted because it's linked to existing brands or other records."
+            "message" => "This country cannot be deleted because it's linked to existing brands, offers, or products."
         ]);
     } else {
         echo json_encode([

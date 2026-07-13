@@ -24,6 +24,36 @@ if (!$brand) {
     exit;
 }
 
+// --- Restrict delete: check tables where OTHER content depends on this brand ---
+// (brand_category / brand_country / brand_gallery are the brand's own metadata
+// and are safe to cascade away below — offers and products are real content
+// that would otherwise be silently destroyed.)
+$dependencies = [
+    ['offers',   'brand_id', 'offer',   'offers'],
+    ['products', 'brand_id', 'product', 'products'],
+];
+
+$usage = [];
+foreach ($dependencies as [$table, $col, $singular, $plural]) {
+    $countStmt = $pdo->prepare("SELECT COUNT(*) FROM `$table` WHERE `$col` = :id");
+    $countStmt->execute([':id' => $id]);
+    $count = (int) $countStmt->fetchColumn();
+    if ($count > 0) {
+        $usage[] = $count . ' ' . ($count === 1 ? $singular : $plural);
+    }
+}
+
+if (!empty($usage)) {
+    $last = array_pop($usage);
+    $list = empty($usage) ? $last : implode(', ', $usage) . ' and ' . $last;
+
+    echo json_encode([
+        "success" => false,
+        "message" => "\"" . $brand['name'] . "\" cannot be deleted because it is linked to " . $list . ". Please remove or reassign these first."
+    ]);
+    exit;
+}
+
 // --- Fetch gallery image paths before deleting rows ---
 $galleryStmt = $pdo->prepare("SELECT image FROM brand_gallery WHERE brand_id = :id");
 $galleryStmt->execute([':id' => $id]);
@@ -69,5 +99,14 @@ try {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
-    echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
+    // Fallback safety net: FK constraint violation (e.g. a new dependent table
+    // was added later and the pre-check above wasn't updated)
+    if ($e->getCode() == 23000) {
+        echo json_encode([
+            "success" => false,
+            "message" => "This brand cannot be deleted because it's linked to existing offers or products."
+        ]);
+    } else {
+        echo json_encode(["success" => false, "message" => "Database error: " . $e->getMessage()]);
+    }
 }

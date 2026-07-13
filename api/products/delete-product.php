@@ -42,6 +42,7 @@ try {
     $pdo->prepare("DELETE FROM product_ingredients WHERE product_id = :id")->execute([':id' => $id]);
     $pdo->prepare("DELETE FROM product_prices WHERE product_id = :id")->execute([':id' => $id]);
     $pdo->prepare("DELETE FROM product_nutrition WHERE product_id = :id")->execute([':id' => $id]);
+    $pdo->prepare("DELETE FROM product_views WHERE product_id = :id")->execute([':id' => $id]);
 
     // --- Delete the product itself ---
     $pdo->prepare("DELETE FROM products WHERE id = :id")->execute([':id' => $id]);
