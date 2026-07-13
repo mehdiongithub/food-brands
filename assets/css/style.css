@@ -369,6 +369,59 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); font-weight: 700; lin
 }
 .hero-filter-select option { background: var(--secondary); color: #fff; }
 .hero-filter-select:focus { border-color: var(--primary); }
+
+/* Hero filter dropdown (image-based, replaces native <select>) */
+.hero-filter-dropdown { position: relative; }
+.hero-filter-dropdown .hero-filter-toggle {
+  display: inline-flex; align-items: center; gap: 0.6rem;
+  background-image: none;
+}
+.hero-filter-dropdown .hfd-caret { font-size: 0.65rem; color: rgba(255,255,255,0.5); transition: transform var(--transition); }
+.hero-filter-dropdown.open .hfd-caret { transform: rotate(180deg); }
+.hero-filter-dropdown.open .hero-filter-toggle { border-color: var(--primary); background: rgba(255,255,255,0.14); }
+
+.hero-filter-panel {
+  /* Positioned via JS (position:fixed + top/left) once moved to <body>,
+     so it always renders above the hero section and everything below it,
+     regardless of any parent's overflow:hidden or stacking context. */
+  position: fixed; z-index: 9999;
+  width: 300px; max-width: 85vw;
+  background: rgba(30, 20, 45, 0.98); backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.15); border-radius: var(--radius-md);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.45);
+  padding: 0.5rem;
+  opacity: 0; visibility: hidden; transform: translateY(-8px);
+  transition: opacity var(--transition), transform var(--transition), visibility var(--transition);
+  pointer-events: none;
+}
+.hero-filter-panel.open {
+  opacity: 1; visibility: visible; transform: translateY(0);
+  pointer-events: auto;
+}
+.hfd-list { max-height: 280px; overflow-y: auto; margin-top: 0.25rem; padding-top: 0.25rem; border-top: 1px solid rgba(255,255,255,0.1); }
+.hfd-list::-webkit-scrollbar { width: 6px; }
+.hfd-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+.hfd-item {
+  display: flex; align-items: center; gap: 0.7rem;
+  padding: 0.5rem 0.6rem; border-radius: var(--radius-sm, 8px);
+  color: rgba(255,255,255,0.85); text-decoration: none; font-size: 0.88rem;
+  transition: background var(--transition);
+}
+.hfd-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.hfd-item-all { font-weight: 600; }
+.hfd-item-logo {
+  flex: none; width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(255,255,255,0.08); overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.85rem; color: rgba(255,255,255,0.6);
+}
+.hfd-item-logo img { width: 100%; height: 100%; object-fit: cover; }
+.hfd-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hfd-loading, .hfd-empty, .hfd-error {
+  padding: 0.75rem 0.6rem; font-size: 0.85rem; color: rgba(255,255,255,0.55);
+  text-align: center;
+}
+.hfd-error { color: #ff8a8a; }
 .hero-popular { display: flex; align-items: center; justify-content: center; gap: 0.5rem; flex-wrap: wrap; }
 .hero-popular span { color: rgba(255,255,255,0.5); font-size: 0.82rem; }
 .hero-popular-tag {

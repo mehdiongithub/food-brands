@@ -13,6 +13,9 @@
         initHeroParticles();
         initHeroSearch();
         initHeroPopularTags();
+        initHeroFilterDropdowns();
+        loadHeroFilterCategories();
+        loadHeroFilterBrands();
         loadFeaturedBrands();
         loadFeaturedProducts();
         loadCategories();
@@ -75,6 +78,165 @@
             var text = $(this).text().trim();
             $('.hero-search-input').val(text).trigger('focus');
         });
+    }
+
+    // ============================================================
+    // 3b. HERO FILTER DROPDOWNS (image-based, category + brand)
+    // ============================================================
+    function initHeroFilterDropdowns() {
+        // Move panels to <body> so they render as a fixed-position "portal".
+        // This escapes .hero-section's overflow:hidden and any local stacking
+        // context, so the panel always displays cleanly on top of the
+        // sections below it instead of getting clipped or bled-through.
+        $('.hero-filter-panel').each(function () {
+            $('body').append(this);
+        });
+
+        function getPanel($dropdown) {
+            return $('#' + $dropdown.attr('id') + '-panel');
+        }
+
+        function positionPanel($dropdown, $panel) {
+            var $toggle = $dropdown.find('.hero-filter-toggle');
+            var rect = $toggle[0].getBoundingClientRect();
+            var margin = 12;
+
+            // Make panel measurable first (visibility toggled after positioning)
+            var panelWidth = $panel.outerWidth() || 300;
+            var maxHeight = window.innerHeight - rect.bottom - margin - 16;
+
+            var left = rect.left;
+            if (left + panelWidth > window.innerWidth - margin) {
+                left = window.innerWidth - panelWidth - margin;
+            }
+            if (left < margin) left = margin;
+
+            $panel.css({
+                top: (rect.bottom + 8) + 'px',
+                left: left + 'px',
+                maxHeight: Math.max(maxHeight, 200) + 'px'
+            });
+            $panel.find('.hfd-list').css('maxHeight', Math.max(maxHeight - 90, 120) + 'px');
+        }
+
+        function closeAll() {
+            $('.hero-filter-panel.open').removeClass('open');
+            $('.hero-filter-dropdown.open').removeClass('open')
+                .find('.hero-filter-toggle').attr('aria-expanded', 'false');
+        }
+
+        // Toggle open/close
+        $(document).on('click', '.hero-filter-toggle', function (e) {
+            e.stopPropagation();
+            var $dropdown = $(this).closest('.hero-filter-dropdown');
+            var $panel = getPanel($dropdown);
+            var wasOpen = $dropdown.hasClass('open');
+
+            closeAll();
+
+            if (!wasOpen) {
+                positionPanel($dropdown, $panel);
+                $dropdown.addClass('open');
+                $panel.addClass('open');
+                $dropdown.find('.hero-filter-toggle').attr('aria-expanded', 'true');
+            }
+        });
+
+        // Close when clicking outside
+        $(document).on('click', function () {
+            closeAll();
+        });
+
+        // Prevent panel clicks from bubbling to the document close-handler
+        $(document).on('click', '.hero-filter-panel', function (e) {
+            e.stopPropagation();
+        });
+
+        // Close on Escape
+        $(document).on('keydown', function (e) {
+            if (e.key === 'Escape') closeAll();
+        });
+
+        // The panel is position:fixed, so it won't track the button while
+        // scrolling/resizing — simplest, most reliable UX is to close it.
+        $(window).on('scroll', function () {
+            if ($('.hero-filter-dropdown.open').length) closeAll();
+        });
+        $(window).on('resize', function () {
+            if ($('.hero-filter-dropdown.open').length) closeAll();
+        });
+    }
+
+    var HERO_FILTER_TOP_COUNT = 6;
+
+    function loadHeroFilterCategories() {
+        var $panel = $('#hero-filter-category-panel');
+        if (!$panel.length) return;
+
+        var $list = $panel.find('.hfd-list');
+
+        // Top categories by popularity (most brands carrying them)
+        $.getJSON(BASE_URL + '/api/site/categories.php', {
+            action: 'list',
+            per_page: HERO_FILTER_TOP_COUNT,
+            sort: 'brands_high'
+        }, function (res) {
+            if (!res.success || !res.categories || res.categories.length === 0) {
+                $list.html('<div class="hfd-empty">No categories available yet.</div>');
+                return;
+            }
+
+            var html = '';
+            $.each(res.categories, function (i, cat) {
+                html += buildHeroFilterItem(cat.url, cat.image, cat.name);
+            });
+            $list.html(html);
+
+        }).fail(function () {
+            $list.html('<div class="hfd-error">Failed to load categories.</div>');
+        });
+    }
+
+    function loadHeroFilterBrands() {
+        var $panel = $('#hero-filter-brand-panel');
+        if (!$panel.length) return;
+
+        var $list = $panel.find('.hfd-list');
+
+        // "featured" is already scoped to the current session country and
+        // gives us the same "top brands" set used elsewhere on the home page
+        $.getJSON(BASE_URL + '/api/site/brands.php', {
+            action: 'featured',
+            limit: HERO_FILTER_TOP_COUNT
+        }, function (res) {
+            if (!res.success || !res.brands || res.brands.length === 0) {
+                $list.html('<div class="hfd-empty">No brands available in your country yet.</div>');
+                return;
+            }
+
+            var html = '';
+            $.each(res.brands, function (i, brand) {
+                html += buildHeroFilterItem(brand.url, brand.logo, brand.name);
+            });
+            $list.html(html);
+
+        }).fail(function () {
+            $list.html('<div class="hfd-error">Failed to load brands.</div>');
+        });
+    }
+
+    function buildHeroFilterItem(url, image, name) {
+        var html = '<a href="' + url + '" class="hfd-item">';
+        html += '<span class="hfd-item-logo">';
+        if (image) {
+            html += '<img src="' + image + '" alt="' + escapeHtml(name) + '" loading="lazy">';
+        } else {
+            html += escapeHtml(name.charAt(0));
+        }
+        html += '</span>';
+        html += '<span class="hfd-item-name">' + escapeHtml(name) + '</span>';
+        html += '</a>';
+        return html;
     }
 
     // ============================================================

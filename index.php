@@ -66,12 +66,36 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </form>
             <div class="hero-filters">
-                <select class="hero-filter-select" id="hero-filter-category" onchange="if(this.value) window.location.href='<?php echo BASE_URL; ?>/categories'">
-                    <option value="">All Categories</option>
-                </select>
-                <select class="hero-filter-select" id="hero-filter-brand" onchange="if(this.value) window.location.href='<?php echo BASE_URL; ?>/brands'">
-                    <option value="">All Brands</option>
-                </select>
+                <div class="hero-filter-dropdown" id="hero-filter-category" data-all-url="<?php echo BASE_URL; ?>/categories">
+                    <button type="button" class="hero-filter-select hero-filter-toggle" aria-haspopup="true" aria-expanded="false">
+                        <span class="hfd-label">All Categories</span>
+                        <i class="fa-solid fa-chevron-down hfd-caret"></i>
+                    </button>
+                    <div class="hero-filter-panel" id="hero-filter-category-panel">
+                        <a href="<?php echo BASE_URL; ?>/categories" class="hfd-item hfd-item-all">
+                            <span class="hfd-item-logo"><i class="fa-solid fa-grip"></i></span>
+                            <span class="hfd-item-name">All Categories</span>
+                        </a>
+                        <div class="hfd-list">
+                            <div class="hfd-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading categories&hellip;</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="hero-filter-dropdown" id="hero-filter-brand" data-all-url="<?php echo BASE_URL; ?>/brands">
+                    <button type="button" class="hero-filter-select hero-filter-toggle" aria-haspopup="true" aria-expanded="false">
+                        <span class="hfd-label">All Brands</span>
+                        <i class="fa-solid fa-chevron-down hfd-caret"></i>
+                    </button>
+                    <div class="hero-filter-panel" id="hero-filter-brand-panel">
+                        <a href="<?php echo BASE_URL; ?>/brands" class="hfd-item hfd-item-all">
+                            <span class="hfd-item-logo"><i class="fa-solid fa-shop"></i></span>
+                            <span class="hfd-item-name">All Brands</span>
+                        </a>
+                        <div class="hfd-list">
+                            <div class="hfd-loading"><i class="fa-solid fa-spinner fa-spin"></i> Loading brands&hellip;</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
