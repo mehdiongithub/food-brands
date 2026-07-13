@@ -255,10 +255,14 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); font-weight: 700; lin
   cursor: pointer; transition: background var(--transition);
 }
 .search-suggestion-item:hover { background: var(--bg-alt); }
-.search-suggestion-item img { width: 36px; height: 36px; border-radius: var(--radius-sm); object-fit: cover; }
-.search-suggestion-item .info { flex: 1; }
+.search-suggestion-item img { width: 36px; height: 36px; border-radius: var(--radius-sm); object-fit: cover; flex-shrink: 0; }
+.search-suggestion-item .info { flex: 1; min-width: 0; }
 .search-suggestion-item .info .name { font-size: 0.9rem; font-weight: 500; color: var(--text); }
-.search-suggestion-item .info .sub { font-size: 0.78rem; color: var(--muted); }
+.search-suggestion-item .info .sub { display: flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; color: var(--muted); }
+.search-suggestion-brand-icon {
+  width: 14px !important; height: 14px !important; border-radius: 50%;
+  object-fit: cover; flex-shrink: 0; border: 1px solid var(--border-light);
+}
 .search-empty { padding: 2rem; text-align: center; color: var(--muted); font-size: 0.9rem; }
 
 /* Theme Toggle */

@@ -70,7 +70,7 @@
     // RENDER GALLERY (Main Image + Thumbnails + Zoom)
     // ============================================================
     function renderGallery(images) {
-        var $mainImg = $('#pd-main-image img');
+        var $mainImg = $('.pd-main-image img');
         var $thumbs = $('#pd-thumbs');
         var $gallery = $('.pd-gallery');
 

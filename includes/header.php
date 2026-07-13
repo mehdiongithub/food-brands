@@ -64,6 +64,10 @@ if ($currentFile === 'brand') {
 </head>
 <body>
 
+<!-- Base URL for all JS (common.js, search.js, etc.) — must be set
+     BEFORE those scripts load, so it lives here at the very top of body -->
+<script>window.BASE_URL = <?php echo json_encode(BASE_URL); ?>;</script>
+
 <!-- Preloader -->
 <div id="preloader">
     <?php if ($logo): ?>
@@ -74,6 +78,8 @@ if ($currentFile === 'brand') {
     <div class="preloader-bar"><div class="preloader-bar-inner"></div></div>
     <div class="preloader-dots"><span></span><span></span><span></span></div>
 </div>
+
+
 
 <!-- Header -->
 <header id="main-header">

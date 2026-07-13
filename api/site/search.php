@@ -71,7 +71,7 @@ try {
         // --- Search Products (max 5) ---
         $stmt = $db->prepare("
             SELECT p.id, p.name, p.slug, p.image, p.calories,
-                   p.brand_id, b.name AS brand_name, b.slug AS brand_slug,
+                   p.brand_id, b.name AS brand_name, b.slug AS brand_slug, b.logo AS brand_logo,
                    pp.regular_price, pp.discount_price,
                    COALESCE(pp.discount_price, pp.regular_price) AS price
             FROM products p
@@ -94,6 +94,8 @@ try {
                 'name_raw'         => $r['name'],
                 'slug'             => $r['slug'],
                 'image'            => asset_url($r['image']),
+                'brand_logo'       => asset_url($r['brand_logo']),
+                'brand_name'       => $r['brand_name'],
                 'sub'              => $r['brand_name'] . ($r['calories'] > 0 ? ' · ' . $r['calories'] . ' cal' : ''),
                 'price'            => $hasDiscount 
                     ? $currSymbol . number_format((float) $r['discount_price'], 0) 

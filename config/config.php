@@ -18,7 +18,20 @@ if (ENVIRONMENT === 'development') {
     ini_set('display_errors', 0);
 }
 
-define('BASE_URL', 'http://localhost/food-brands');
+// Auto-detect BASE_URL the same way config/database-config.php does,
+// so the admin panel keeps working no matter what your project folder
+// is named.
+if (!defined('BASE_URL')) {
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $docRoot = isset($_SERVER['DOCUMENT_ROOT']) ? realpath($_SERVER['DOCUMENT_ROOT']) : '';
+    $projectRoot = realpath(__DIR__ . '/..');
+    $urlPrefix = '';
+    if ($docRoot && $projectRoot && strpos($projectRoot, $docRoot) === 0) {
+        $urlPrefix = rtrim(str_replace('\\', '/', substr($projectRoot, strlen($docRoot))), '/');
+    }
+    define('BASE_URL', $protocol . '://' . $host . $urlPrefix);
+}
 
 date_default_timezone_set('Asia/Karachi');
 

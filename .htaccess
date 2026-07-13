@@ -1,5 +1,9 @@
 RewriteEngine On
-RewriteBase /food-brands/
+# RewriteBase intentionally omitted so this works no matter what your
+# project folder is named (Apache infers it from this file's location).
+# If pretty URLs (e.g. /brands, /brand/kfc) 404 on your server, uncomment
+# the line below and set it to your ACTUAL folder name:
+# RewriteBase /your-folder-name/
 
 # Serve real files and directories as-is
 RewriteCond %{REQUEST_FILENAME} -f [OR]

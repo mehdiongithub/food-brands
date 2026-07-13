@@ -188,8 +188,16 @@
         });
 
         // Close on clicking outside search container
+        // IMPORTANT: also ignore clicks on the open-button itself — otherwise
+        // this same click bubbles to document AFTER the open-handler above
+        // already added "active", and this would immediately remove it again
+        // (modal opens and closes within the same click, looking like nothing happened).
         $(document).on('click', function (e) {
-            if ($overlay.hasClass('active') && !$(e.target).closest('.search-container').length) {
+            if (
+                $overlay.hasClass('active') &&
+                !$(e.target).closest('.search-container').length &&
+                !$(e.target).closest('#header-search-btn').length
+            ) {
                 closeSearch();
             }
         });
@@ -273,7 +281,12 @@
                     html += '  <img src="' + item.image + '" alt="' + escapeHtml(item.name_raw) + '">';
                     html += '  <div class="info">';
                     html += '    <div class="name">' + item.name + '</div>';
-                    html += '    <div class="sub">' + item.sub + (item.price ? ' · ' + item.price : '') + '</div>';
+                    html += '    <div class="sub">';
+                    if (item.brand_logo) {
+                        html += '<img class="search-suggestion-brand-icon" src="' + item.brand_logo + '" alt="' + escapeHtml(item.brand_name || '') + '">';
+                    }
+                    html += '<span>' + item.brand_name + (item.price ? ' · ' + item.price : '') + '</span>';
+                    html += '    </div>';
                     html += '  </div>';
                     html += '</a>';
                 });

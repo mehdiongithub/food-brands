@@ -10,10 +10,24 @@ define('DB_NAME', 'foodscope');
 define('DB_USER', 'root');
 define('DB_PASS', '');
 
-// Site URL - change if your folder name is different
+// Site URL - AUTO-DETECTED, works no matter what your project folder is
+// named (e.g. /food-brands, /bhagwandas, /htdocs root, etc). We compare
+// the project's real filesystem path (BASE_PATH) against the server's
+// document root to figure out the URL prefix automatically.
 $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'];
-define('BASE_URL', $protocol . '://' . $host . '/food-brands');
+
+$docRoot = isset($_SERVER['DOCUMENT_ROOT']) ? realpath($_SERVER['DOCUMENT_ROOT']) : '';
+$projectRoot = realpath(BASE_PATH);
+
+$urlPrefix = '';
+if ($docRoot && $projectRoot && strpos($projectRoot, $docRoot) === 0) {
+    $urlPrefix = substr($projectRoot, strlen($docRoot));
+    $urlPrefix = str_replace('\\', '/', $urlPrefix); // Windows path separators
+    $urlPrefix = rtrim($urlPrefix, '/');
+}
+
+define('BASE_URL', $protocol . '://' . $host . $urlPrefix);
 
 // Start session
 if (session_status() === PHP_SESSION_NONE) {
