@@ -61,6 +61,16 @@ if ($currentFile === 'brand') {
 <?php if (isset($schemaJson)): ?>
 <script type="application/ld+json"><?php echo $schemaJson; ?></script>
 <?php endif; ?>
+<?php
+// Google AdSense — loads the ONE script Google requires per page, and only
+// when an admin has actually turned ads on and saved a Publisher ID
+// (Admin → Ads). If ads are off, nothing is printed here at all.
+$__adSettings = getSettings();
+if (!empty($__adSettings['adsense_enabled']) && !empty($__adSettings['adsense_client'])):
+    $__adClient = htmlspecialchars($__adSettings['adsense_client'], ENT_QUOTES, 'UTF-8');
+?>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=<?php echo $__adClient; ?>" crossorigin="anonymous"></script>
+<?php endif; ?>
 </head>
 <body>
 

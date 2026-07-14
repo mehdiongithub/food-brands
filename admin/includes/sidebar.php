@@ -94,6 +94,10 @@ function isActive($segment, $currentPath) {
 
     <div class="sb-sec">
       <div class="sb-sec-t">System</div>
+      <a class="sb-link <?= isActive('/admin/ads/', $currentPath) ?>"
+         href="<?= BASE_URL ?>/admin/ads/index.php">
+         <i class="fas fa-rectangle-ad"></i><span>Ads</span>
+      </a>
       <a class="sb-link <?= isActive('/admin/settings/', $currentPath) ?>"
          href="<?= BASE_URL ?>/admin/settings/index.php">
          <i class="fas fa-cog"></i><span>Settings</span>

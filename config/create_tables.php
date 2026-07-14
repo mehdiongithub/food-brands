@@ -631,6 +631,49 @@ CREATE TABLE redirects (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
 
 
+$tables['ad_units'] = "
+CREATE TABLE IF NOT EXISTS ad_units (
+
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+
+    name VARCHAR(150) NOT NULL,
+
+    slug VARCHAR(100) NOT NULL,
+
+    ad_slot VARCHAR(50) NULL,
+
+    ad_format VARCHAR(30) NOT NULL DEFAULT 'auto',
+
+    full_width_responsive TINYINT(1) NOT NULL DEFAULT 1,
+
+    status TINYINT(1) NOT NULL DEFAULT 0,
+
+    created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+
+    updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP
+    ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY slug (slug)
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+
+// Adds AdSense columns to the existing settings table (safe to run only once)
+try {
+    $stmt = $pdo->query("SHOW COLUMNS FROM settings LIKE 'adsense_client'");
+    if ($stmt->rowCount() === 0) {
+        $pdo->exec("
+            ALTER TABLE settings
+            ADD COLUMN adsense_client VARCHAR(50) DEFAULT NULL AFTER google_tag_manager,
+            ADD COLUMN adsense_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER adsense_client
+        ");
+        echo "Columns 'adsense_client' and 'adsense_enabled' added to settings\n";
+    } else {
+        echo "AdSense columns already exist on settings, skipped\n";
+    }
+} catch (PDOException $e) {
+    echo "Error altering settings: " . $e->getMessage() . "\n";
+}
+
 // Execute in order (order matters because of foreign keys!)
 foreach ($tables as $name => $sql) {
     try {

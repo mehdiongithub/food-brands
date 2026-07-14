@@ -105,6 +105,9 @@ require_once __DIR__ . '/includes/header.php';
         </div>
     </section>
 
+    <div class="container">
+        <?php echo renderAdUnit('brand_detail'); // prints nothing unless configured & enabled in Admin -> Ads ?>
+    </div>
 
     <!-- ===== GALLERY SECTION ===== -->
     <section class="brand-gallery-section section-padding" style="padding-top:2rem;padding-bottom:2rem;">

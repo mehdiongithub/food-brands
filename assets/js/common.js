@@ -35,23 +35,60 @@
         initQuickView();
         initNewsletter();
         initAOS();
+        initAdSlots();
     });
 
     // ============================================================
     // 1. PRELOADER
     // ============================================================
     function initPreloader() {
-        // Hide preloader after page fully loads
+        // Hide preloader after page fully loads.
+        // (Reduced from 1800ms -> 1250ms, ~30% faster, still matches the
+        // CSS bar-fill animation duration below so the visual finishes
+        // exactly when the preloader disappears.)
         $(window).on('load', function () {
             setTimeout(function () {
                 $('#preloader').addClass('hidden');
-            }, 1800); // Matches CSS animation duration
+            }, 1250); // Matches CSS animation duration
         });
 
-        // Fallback: hide after 4 seconds even if load event is slow
+        // Fallback: hide even if the 'load' event is slow/blocked
+        // (reduced proportionally from 4000ms -> 2800ms).
         setTimeout(function () {
             $('#preloader').addClass('hidden');
-        }, 4000);
+        }, 2800);
+    }
+
+    // ============================================================
+    // 1b. AD SLOTS (Google AdSense) — collapse if no fill
+    // ============================================================
+    // renderAdUnit() (PHP) only ever prints a .ad-slot when a real ad is
+    // configured, but AdSense itself can still legitimately decide it has
+    // no ad to serve for a given impression (data-ad-status="unfilled").
+    // This watches for that and smoothly collapses the reserved space so
+    // no empty box is ever left sitting in the layout.
+    function initAdSlots() {
+        var $slots = $('.ad-slot');
+        if (!$slots.length || typeof MutationObserver === 'undefined') return;
+
+        $slots.each(function () {
+            var $slot = $(this);
+            var insEl = $slot.find('ins.adsbygoogle')[0];
+            if (!insEl) return;
+
+            var checkStatus = function () {
+                var status = insEl.getAttribute('data-ad-status');
+                if (status === 'unfilled') {
+                    $slot.addClass('ad-empty');
+                }
+            };
+
+            // Status may already be set by the time we get here
+            checkStatus();
+
+            var observer = new MutationObserver(checkStatus);
+            observer.observe(insEl, { attributes: true, attributeFilter: ['data-ad-status'] });
+        });
     }
 
     // ============================================================
@@ -747,4 +784,3 @@
     };
 
 })();
-

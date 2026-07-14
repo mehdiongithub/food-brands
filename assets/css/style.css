@@ -94,7 +94,7 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); font-weight: 700; lin
   width: 0%; height: 100%;
   background: linear-gradient(90deg, var(--primary), var(--primary-light));
   border-radius: 3px;
-  animation: preloaderFill 1.8s ease-in-out forwards;
+  animation: preloaderFill 1.25s ease-in-out forwards;
 }
 @keyframes preloaderFill { to { width: 100%; } }
 .preloader-dots { display: flex; gap: 8px; margin-top: 1.5rem; }
@@ -501,6 +501,39 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); font-weight: 700; lin
   margin-top: 0.75rem; cursor: pointer; transition: gap var(--transition);
 }
 .fb-view-all:hover { gap: 0.75rem; }
+
+/* ========== Ad Slots (Google AdSense) ========== */
+.ad-slot {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  margin: 2rem auto;
+  padding: 1.75rem 1rem 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+  overflow: hidden;
+  min-height: 100px;
+  /* Reserves a little space immediately so nothing else on the page
+     jumps around while the ad script decides whether it has a fill. */
+  transition: opacity 0.35s ease, max-height 0.35s ease, margin 0.35s ease, padding 0.35s ease;
+}
+.ad-slot .adsbygoogle { min-height: 90px; }
+.ad-slot-label {
+  position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+  font-size: 0.65rem; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--muted);
+  opacity: 0.65;
+}
+/* Added by common.js only when Google explicitly reports no fill for this
+   impression (data-ad-status="unfilled") — collapses the reserved space
+   so the page layout looks exactly like the ad slot was never there. */
+.ad-slot.ad-empty {
+  opacity: 0; max-height: 0; margin: 0; padding: 0;
+  border-width: 0; box-shadow: none; pointer-events: none;
+}
 
 /* ========== Product Cards ========== */
 .product-card {

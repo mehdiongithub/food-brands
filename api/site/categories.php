@@ -342,12 +342,21 @@ try {
     if ($sort === 'newest') $sortSql = " ORDER BY c.id DESC ";
 
     // Count total categories
-    $countParams = array_merge($searchParams);
+    // Only count categories that actually have at least one product
+    // priced/available in the CURRENT country (EXISTS scoped to $countryId).
+    // This keeps pagination/"total_items" consistent with what is shown.
+    $countParams = array_merge($searchParams, [$countryId]);
     $stmt = $db->prepare("
         SELECT COUNT(DISTINCT c.id) AS total
         FROM categories c
         WHERE c.status = 1
         $searchSql
+        AND EXISTS (
+            SELECT 1
+            FROM products p
+            INNER JOIN product_prices pp ON pp.product_id = p.id AND pp.country_id = ? AND pp.status = 1
+            WHERE p.category_id = c.id AND p.status = 1
+        )
     ");
     $stmt->execute($countParams);
     $totalCategories = (int) $stmt->fetchColumn();
@@ -370,6 +379,7 @@ try {
         WHERE c.status = 1
         $searchSql
         GROUP BY c.id
+        HAVING product_count > 0
         $sortSql
         LIMIT ? OFFSET ?
     ");

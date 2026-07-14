@@ -280,7 +280,9 @@
         var delay = Math.min(index * 40, 400);
 
         // Wrap in a Bootstrap column so cards lay out correctly in the row grid
-        var html = '<div class="col-6 col-md-6 col-lg-4" data-aos="fade-up" data-aos-delay="' + delay + '">';
+        // (same responsive classes as the brand page: full width on mobile,
+        // 2 per row on tablets, 3 per row on desktop)
+        var html = '<div class="col-lg-4 col-md-6 col-sm-6 mb-4" data-aos="fade-up" data-aos-delay="' + delay + '">';
         html += '<div class="product-card">';
 
         // Image

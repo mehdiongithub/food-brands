@@ -235,6 +235,8 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 </section>
 
+<?php echo renderAdUnit('home_middle'); // prints nothing unless configured & enabled in Admin -> Ads ?>
+
 <!-- ============================================================
      CATEGORIES SECTION
      ============================================================ -->
@@ -294,6 +296,8 @@ require_once __DIR__ . '/includes/header.php';
         </div>
     </div>
 </section>
+
+<?php echo renderAdUnit('home_bottom'); // prints nothing unless configured & enabled in Admin -> Ads ?>
 
 <!-- ============================================================
      TESTIMONIALS SECTION

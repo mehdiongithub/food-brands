@@ -97,6 +97,78 @@ function stripMeta($html, $maxLen = 160) {
 }
 
 /**
+ * ============================================================
+ * GOOGLE ADSENSE — renderAdUnit()
+ * ============================================================
+ * Prints one AdSense placement by its `slug` (see ad_units table).
+ *
+ * IMPORTANT: this returns an EMPTY STRING (prints nothing at all — no
+ * div, no placeholder box) whenever:
+ *   - Ads are turned off site-wide (settings.adsense_enabled = 0), OR
+ *   - No Publisher ID has been saved (settings.adsense_client), OR
+ *   - This specific placement doesn't exist / is disabled / has no
+ *     Ad Slot ID filled in yet (ad_units.status = 0 or ad_slot empty)
+ *
+ * That means: until an admin actually configures + enables a slot in
+ * Admin → Ads, the template calls below are 100% inert and can never
+ * disturb your layout. Once configured, the ad renders inside a
+ * `.ad-slot` card that matches the site's existing card styling, and
+ * assets/js/common.js will auto-collapse it if Google itself returns
+ * no fill for that impression (see initAdSlots() there).
+ *
+ * Usage in any page: <?php echo renderAdUnit('home_middle'); ?>
+ */
+function renderAdUnit($slug) {
+    static $adUnitCache = [];   // per-request cache, not per-session — always fresh
+    static $adSettings  = null;
+
+    if ($adSettings === null) {
+        $s = getSettings(); // already session-cached elsewhere in the app
+        $adSettings = [
+            'enabled' => !empty($s['adsense_enabled']),
+            'client'  => trim($s['adsense_client'] ?? ''),
+        ];
+    }
+
+    if (!$adSettings['enabled'] || $adSettings['client'] === '') {
+        return ''; // AdSense off site-wide — render nothing
+    }
+
+    if (!array_key_exists($slug, $adUnitCache)) {
+        $db = getDB();
+        $stmt = $db->prepare("SELECT * FROM ad_units WHERE slug = ? AND status = 1 LIMIT 1");
+        $stmt->execute([$slug]);
+        $adUnitCache[$slug] = $stmt->fetch() ?: null;
+    }
+
+    $unit = $adUnitCache[$slug];
+    if (!$unit || empty($unit['ad_slot'])) {
+        return ''; // this placement isn't configured/enabled — render nothing
+    }
+
+    $client     = htmlspecialchars($adSettings['client'], ENT_QUOTES, 'UTF-8');
+    $slotId     = htmlspecialchars($unit['ad_slot'], ENT_QUOTES, 'UTF-8');
+    $format     = htmlspecialchars($unit['ad_format'] ?: 'auto', ENT_QUOTES, 'UTF-8');
+    $fullWidth  = $unit['full_width_responsive'] ? 'true' : 'false';
+    $safeSlug   = htmlspecialchars($slug, ENT_QUOTES, 'UTF-8');
+
+    ob_start();
+    ?>
+    <div class="ad-slot" data-ad-slug="<?php echo $safeSlug; ?>">
+        <span class="ad-slot-label">Advertisement</span>
+        <ins class="adsbygoogle"
+             style="display:block"
+             data-ad-client="<?php echo $client; ?>"
+             data-ad-slot="<?php echo $slotId; ?>"
+             data-ad-format="<?php echo $format; ?>"
+             data-full-width-responsive="<?php echo $fullWidth; ?>"></ins>
+        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+
+/**
  * Generate page title
  */
 function pageTitle($custom = '', $suffix = true) {

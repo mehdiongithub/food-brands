@@ -207,6 +207,8 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     </div>
 
+                    <?php echo renderAdUnit('category_infeed'); // prints nothing unless configured & enabled in Admin -> Ads ?>
+
                     <!-- Products Skeleton -->
                     <div id="cat-products-skeleton">
                         <div class="row g-3">

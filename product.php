@@ -180,6 +180,10 @@ require_once __DIR__ . '/includes/header.php';
         </div>
     </section>
 
+    <div class="container">
+        <?php echo renderAdUnit('product_detail'); // prints nothing unless configured & enabled in Admin -> Ads ?>
+    </div>
+
     <!-- ===== ACTIVE OFFERS ===== -->
     <section class="pd-offers-section section-padding" style="padding-top:1rem;padding-bottom:2rem;background:var(--bg-alt);">
         <div class="container">
