@@ -209,6 +209,11 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     </div>
 
+                    <!-- Category Quick-Nav (sticky pills: Zinger Burgers, Ice Cream, ...) -->
+                    <div id="brand-category-nav" class="menu-category-nav" style="display:none;">
+                        <!-- Populated by brand-detail.js: one pill per category -->
+                    </div>
+
                     <!-- Products Skeleton -->
                     <div id="brand-products-skeleton">
                         <div class="row g-3">
@@ -218,17 +223,21 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     </div>
 
-                    <!-- Products Grid (native CSS grid — see #brand-products-grid rule in style.css) -->
-                    <div id="brand-products-grid" class="row" style="display:none;">
+                    <!-- Products Grid — grouped into per-category sections by brand-detail.js
+                         (heading e.g. "Zinger Burgers", "Ice Cream" followed by that category's products) -->
+                    <div id="brand-products-grid" style="display:none;">
                         <!-- Populated by brand-detail.js via AJAX -->
                     </div>
 
-                    <!-- Pagination -->
-                    <div id="brand-products-pagination" style="display:none;">
-                        <!-- Populated by brand-detail.js via AJAX -->
+                    <!-- Load More (appends the next batch of products into their category groups) -->
+                    <div id="brand-products-loadmore" class="text-center" style="display:none;margin-top:1rem;">
+                        <button id="btn-brand-load-more" class="filter-reset-btn" style="max-width:220px;margin:0 auto;">
+                            <i class="fa-solid fa-plus" style="margin-right:0.4rem;"></i> Load More Items
+                        </button>
                     </div>
 
                 </div>
+
             </div>
 
         </div>

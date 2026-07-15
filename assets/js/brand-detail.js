@@ -13,14 +13,22 @@
     var brandSlug = window.BRAND_SLUG || '';
 
     // Current product filter state
+    // per_page is intentionally large: products are grouped into per-category
+    // sections (Zinger Burgers, Ice Cream, ...) so we want a whole "page" to
+    // cover as many full categories as possible instead of splitting a
+    // category's items across pages.
     var state = {
         page: 1,
-        per_page: 12,
+        per_page: 60,
         category_ids: [], // multi-select category checkboxes
         max_price: null,  // price range slider
         search: '',
         sort: 'newest'
     };
+
+    // Products grouped by category_id, in the order categories were first seen.
+    // Shape: { order: [catId, ...], groups: { catId: { name, slug, products: [...] } } }
+    var grouped = { order: [], groups: {} };
 
     // Pending sidebar selections (only committed to `state` on Apply)
     var pending = {
@@ -29,13 +37,13 @@
     };
 
     // DOM references
-    var $productsGrid, $paginationWrap, $countEl, $skeletonWrap;
+    var $productsGrid, $loadMoreWrap, $countEl, $skeletonWrap;
     var brandData = null; // Store full brand response
     var priceBounds = { min: 0, max: 999 };
 
     $(document).ready(function () {
         $productsGrid = $('#brand-products-grid');
-        $paginationWrap = $('#brand-products-pagination');
+        $loadMoreWrap = $('#brand-products-loadmore');
         $countEl = $('#brand-products-count');
         $skeletonWrap = $('#brand-products-skeleton');
 
@@ -55,7 +63,7 @@
         var params = new URLSearchParams(window.location.search);
 
         if (params.get('page')) state.page = parseInt(params.get('page')) || 1;
-        if (params.get('per_page')) state.per_page = parseInt(params.get('per_page')) || 12;
+        if (params.get('per_page')) state.per_page = parseInt(params.get('per_page')) || 60;
         if (params.get('category_ids')) {
             state.category_ids = params.get('category_ids').split(',').map(function (v) { return parseInt(v); }).filter(Boolean);
         }
@@ -85,7 +93,7 @@
         var params = new URLSearchParams();
 
         if (state.page > 1) params.set('page', state.page);
-        if (state.per_page !== 12) params.set('per_page', state.per_page);
+        if (state.per_page !== 60) params.set('per_page', state.per_page);
         if (state.category_ids.length) params.set('category_ids', state.category_ids.join(','));
         if (state.max_price !== null && state.max_price !== undefined) params.set('max_price', state.max_price);
         if (state.search) params.set('search', state.search);
@@ -146,14 +154,17 @@
             renderHistory(res.brand);
 
             hideProductsSkeleton();
+            resetGrouped();
             if (res.products.length === 0) {
                 $productsGrid.html('');
                 showEmptyProducts();
             } else {
-                renderProducts(res.products);
+                addProductsToGroups(res.products, res.categories);
+                renderGroupedProducts();
             }
 
-            renderPagination(res.pagination);
+            renderCategoryNav(res.categories);
+            renderLoadMore(res.pagination);
             updateCount(res.pagination.total_items, res.pagination.current_page, res.pagination.per_page);
             updateUrlParams(false);
 
@@ -166,7 +177,7 @@
     }
 
     // ============================================================
-    // LOAD PRODUCTS ONLY (after initial load)
+    // LOAD PRODUCTS ONLY (search / sort / filter change — replaces grid)
     // ============================================================
     function loadProductsOnly() {
         showProductsSkeleton();
@@ -178,21 +189,55 @@
             }
 
             hideProductsSkeleton();
+            resetGrouped();
 
             if (res.products.length === 0) {
                 $productsGrid.html('');
                 showEmptyProducts();
             } else {
-                renderProducts(res.products);
+                addProductsToGroups(res.products, res.categories);
+                renderGroupedProducts();
             }
 
-            renderPagination(res.pagination);
+            renderCategoryNav(res.categories);
+            renderLoadMore(res.pagination);
             updateCount(res.pagination.total_items, res.pagination.current_page, res.pagination.per_page);
             updateUrlParams(false);
             window.refreshAOS();
 
         }).fail(function () {
             showError('Network error while loading products.');
+        });
+    }
+
+    // ============================================================
+    // LOAD MORE PRODUCTS (appends next page's items into their
+    // existing category groups, or creates new groups as needed)
+    // ============================================================
+    function loadMoreProducts() {
+        var $btn = $('#btn-brand-load-more');
+        $btn.prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin" style="margin-right:0.4rem;"></i> Loading...');
+
+        state.page += 1;
+
+        $.getJSON(BASE_URL + '/api/site/brands.php', buildRequestParams(), function (res) {
+            if (!res.success) {
+                showError('Failed to load more products. Please try again.');
+                return;
+            }
+
+            addProductsToGroups(res.products, res.categories);
+            renderGroupedProducts();
+            renderLoadMore(res.pagination);
+            updateCount(res.pagination.total_items, res.pagination.current_page, res.pagination.per_page);
+            updateUrlParams(false);
+            window.refreshAOS();
+
+        }).fail(function () {
+            state.page -= 1;
+            showError('Network error while loading more products.');
+        }).always(function () {
+            $btn.prop('disabled', false).html('<i class="fa-solid fa-plus" style="margin-right:0.4rem;"></i> Load More Items');
         });
     }
 
@@ -422,14 +467,90 @@
     }
 
     // ============================================================
-    // RENDER PRODUCTS
+    // GROUP PRODUCTS BY CATEGORY
     // ============================================================
-    function renderProducts(products) {
-        var html = '';
+    // Each category becomes its own menu section: a heading (e.g. "Zinger
+    // Burgers", "Ice Cream") followed by that category's products in a grid —
+    // the same pattern used by professional food-ordering menus.
+    function resetGrouped() {
+        grouped = { order: [], groups: {} };
+    }
+
+    function addProductsToGroups(products, categories) {
+        // Pre-seed group order/names from the brand's category list (already
+        // sorted alphabetically by the API) so sections appear in a stable,
+        // predictable order even as more pages are appended via Load More.
+        if (categories && categories.length && grouped.order.length === 0) {
+            $.each(categories, function (i, cat) {
+                grouped.order.push(cat.id);
+                grouped.groups[cat.id] = { id: cat.id, name: cat.name, slug: cat.slug, products: [] };
+            });
+        }
+
         $.each(products, function (i, p) {
-            html += buildProductCard(p, i);
+            var catId = p.category_id || 0;
+            var catName = p.category_name || 'Other Items';
+
+            if (!grouped.groups[catId]) {
+                grouped.order.push(catId);
+                grouped.groups[catId] = { id: catId, name: catName, slug: p.category_slug || '', products: [] };
+            }
+            grouped.groups[catId].products.push(p);
         });
+    }
+
+    function renderGroupedProducts() {
+        var html = '';
+        var indexCounter = 0;
+
+        $.each(grouped.order, function (i, catId) {
+            var group = grouped.groups[catId];
+            if (!group || !group.products.length) return; // skip empty categories (e.g. filtered out)
+
+            var anchorId = 'cat-section-' + catId;
+            html += '<div class="menu-category-block" id="' + anchorId + '" data-aos="fade-up">';
+            html += '  <div class="menu-category-heading">';
+            html += '    <h3>' + escapeHtml(group.name) + '</h3>';
+            html += '    <span class="menu-category-count">' + group.products.length + ' item' + (group.products.length === 1 ? '' : 's') + '</span>';
+            html += '  </div>';
+            html += '  <div class="row g-3">';
+            $.each(group.products, function (j, p) {
+                html += buildProductCard(p, indexCounter);
+                indexCounter++;
+            });
+            html += '  </div>';
+            html += '</div>';
+        });
+
         $productsGrid.html(html);
+    }
+
+    // ============================================================
+    // RENDER CATEGORY QUICK-NAV (sticky pills that scroll to a section)
+    // ============================================================
+    function renderCategoryNav(categories) {
+        var $nav = $('#brand-category-nav');
+        if (!$nav.length) return;
+
+        if (!categories || categories.length < 2) {
+            $nav.hide().html('');
+            return;
+        }
+
+        var html = '';
+        $.each(categories, function (i, cat) {
+            if (!cat.product_count) return;
+            html += '<button type="button" class="menu-category-pill" data-cat-id="' + cat.id + '">';
+            html += escapeHtml(cat.name) + ' <span>' + cat.product_count + '</span>';
+            html += '</button>';
+        });
+
+        if (!html) {
+            $nav.hide().html('');
+            return;
+        }
+
+        $nav.html(html).show();
     }
 
     function buildProductCard(p, index) {
@@ -471,10 +592,6 @@
         // Name
         html += '<h4 class="pc-name"><a href="' + p.url + '" style="color:var(--text);transition:color 0.3s;">' + escapeHtml(p.name) + '</a></h4>';
 
-        // Category
-        if (p.category_name) {
-            html += '<div class="pc-category">' + escapeHtml(p.category_name) + '</div>';
-        }
 
         // Calories
         if (p.calories > 0) {
@@ -523,19 +640,18 @@
     });
 
     // ============================================================
-    // RENDER PAGINATION
+    // RENDER LOAD MORE (replaces numbered pagination — keeps category
+    // sections intact instead of splitting a category across "pages")
     // ============================================================
-    function renderPagination(pagination) {
-        if (!window.buildPagination) return;
+    function renderLoadMore(pagination) {
+        var $wrap = $('#brand-products-loadmore');
+        if (!$wrap.length) return;
 
-        var html = window.buildPagination(pagination);
-        $paginationWrap.html(html);
-
-        window.bindPagination($paginationWrap, function (page) {
-            state.page = page;
-            loadProductsOnly();
-            scrollToProducts();
-        });
+        if (pagination && pagination.has_next) {
+            $wrap.show();
+        } else {
+            $wrap.hide();
+        }
     }
 
     // ============================================================
@@ -576,10 +692,10 @@
         if ($skeletonWrap.length) {
             $skeletonWrap.show();
             $productsGrid.hide();
-            $paginationWrap.hide();
-            $skeletonWrap.html(window.skeletonCards ? window.skeletonCards(state.per_page, 'product') : '');
+            $loadMoreWrap.hide();
+            $skeletonWrap.html(window.skeletonCards ? window.skeletonCards(9, 'product') : '');
         } else {
-            $productsGrid.html(window.skeletonCards ? window.skeletonCards(state.per_page, 'product') : '');
+            $productsGrid.html(window.skeletonCards ? window.skeletonCards(9, 'product') : '');
         }
     }
 
@@ -587,7 +703,6 @@
         if ($skeletonWrap.length) {
             $skeletonWrap.hide();
             $productsGrid.show();
-            $paginationWrap.show();
         }
     }
 
@@ -728,6 +843,37 @@
             updateUrlParams(true);
             loadProductsOnly();
             closeMobileFilter();
+        });
+
+        // --- Load More button (appends next batch into category groups) ---
+        $(document).on('click', '#btn-brand-load-more', function () {
+            loadMoreProducts();
+        });
+
+        // --- Category quick-nav pill click ---
+        // If that category's section is already rendered on the page, just
+        // smooth-scroll to it. Otherwise (e.g. it hasn't loaded yet), fall
+        // back to filtering by that category so it's guaranteed to show.
+        $(document).on('click', '.menu-category-pill', function () {
+            var catId = parseInt($(this).data('cat-id'));
+            var $section = $('#cat-section-' + catId);
+
+            $('.menu-category-pill').removeClass('active');
+            $(this).addClass('active');
+
+            if ($section.length) {
+                var offset = $('#main-header').outerHeight() + 20;
+                $('html, body').animate({ scrollTop: $section.offset().top - offset }, 400, 'swing');
+            } else {
+                pending.category_ids = [catId];
+                state.category_ids = [catId];
+                state.page = 1;
+                $('#brand-filter-categories input[type="checkbox"], #brand-filter-categories-mobile input[type="checkbox"]').each(function () {
+                    $(this).prop('checked', parseInt($(this).val()) === catId);
+                });
+                updateUrlParams(true);
+                loadProductsOnly();
+            }
         });
 
         // --- Mobile filter drawer open/close ---

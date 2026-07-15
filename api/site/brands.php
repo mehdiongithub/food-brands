@@ -301,7 +301,10 @@ try {
 
         // Get products with prices for current country (with pagination)
         $page = max(1, (int) getInput('page', 1));
-        $per_page = max(1, min(50, (int) getInput('per_page', 12)));
+        // Cap raised to 150 so the brand page can render a full "grouped by
+        // category" menu (like Zinger Burgers, then Ice Cream, etc.) in one
+        // request instead of forcing category groups to split across pages.
+        $per_page = max(1, min(150, (int) getInput('per_page', 60)));
         $offset = ($page - 1) * $per_page;
 
         // Filter by category(ies) if provided — supports single category_id
