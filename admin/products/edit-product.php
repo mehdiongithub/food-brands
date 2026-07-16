@@ -198,13 +198,16 @@ if (!$checkStmt->fetch()) {
                         <div class="form-section-title"><i class="fas fa-money-bill-wave"></i> Pricing by Country</div>
 
                         <div style="margin-bottom:10px;">
-                            <select class="fss" id="countryPicker" style="width:280px;display:inline-block;">
-                                <option value="">Select a country to add pricing...</option>
+                            <select class="fss" id="countryPicker" style="width:280px;display:inline-block;" disabled>
+                                <option value="">Select a brand first...</option>
                             </select>
-                            <button type="button" class="bo" id="addCountryPriceBtn" style="margin-left:8px;">
+                            <button type="button" class="bo" id="addCountryPriceBtn" style="margin-left:8px;" disabled>
                                 <i class="fas fa-plus"></i> Add
                             </button>
                         </div>
+                        <small style="color:var(--muted);font-size:.72rem;display:block;margin-bottom:8px;" id="countryPickerHint">
+                            Only countries where the selected brand is present are listed here.
+                        </small>
 
                         <div id="priceRowsContainer">
                             <div style="color:var(--muted);font-size:.82rem;padding:10px 0;" id="noPricesMsg">
@@ -365,13 +368,117 @@ if (!$checkStmt->fetch()) {
             }
 
             populateDropdowns(formData);
-            populateForm(productData.data);
 
-            $('#loadingBox').hide();
-            $('#formWrapper').show();
+            // The country picker/price rows depend on this product's brand,
+            // so load its countries first, THEN populate the form (which
+            // adds the saved price rows against countriesData).
+            var brandId = productData.data.brand_id;
+
+            loadCountriesForBrand(brandId)
+                .done(function (countryRes) {
+                    populateCountryOptions(countryRes.success ? countryRes.countries : []);
+                })
+                .fail(function (jqXHR) {
+                    toast(describeAjaxFailure(jqXHR, 'Failed to load countries for this brand.'), 'err');
+                    populateCountryOptions([]);
+                })
+                .always(function () {
+                    populateForm(productData.data);
+                    $('#loadingBox').hide();
+                    $('#formWrapper').show();
+                });
         }).fail(function () {
             toast('Failed to load product details', 'err');
             $('#loadingBox').html('<p>Something went wrong while loading this product.</p>');
+        });
+    });
+
+    // --- Country picker: scoped to the selected brand's countries only ---
+    function loadCountriesForBrand(brandId) {
+        return $.ajax({
+            url: '../../api/products/get-brand-countries.php',
+            type: 'GET',
+            data: { brand_id: brandId },
+            dataType: 'json'
+        });
+    }
+
+    // Turns a failed jqXHR into a readable message. Also logs the raw response
+    // to the console — a 200 status with a parse error usually means the
+    // "JSON" wasn't actually JSON (an HTML fallback page, a PHP warning
+    // printed before the real output, etc.), which is easiest to see raw.
+    function describeAjaxFailure(jqXHR, fallback) {
+        console.error('Request to ' + (jqXHR.responseURL || 'endpoint') + ' failed. Raw response:', jqXHR.responseText);
+
+        if (jqXHR.responseJSON && jqXHR.responseJSON.message) return jqXHR.responseJSON.message;
+        if (jqXHR.status === 0) return 'Network error — could not reach the server.';
+
+        if (jqXHR.status >= 200 && jqXHR.status < 300) {
+            return (fallback || 'Request failed') + ' — server returned HTTP ' + jqXHR.status + ' but the response wasn\'t valid JSON (see browser console for the raw output).';
+        }
+        return (fallback || 'Request failed') + ' (HTTP ' + jqXHR.status + ' ' + (jqXHR.statusText || '') + ')';
+    }
+
+    // Fills the picker from a given country list without touching any
+    // already-added price rows -- used on initial load (before rows are
+    // added) and when re-populated after a brand change.
+    function populateCountryOptions(countries) {
+        countriesData = {};
+        var countryOptions = '<option value="">Select a country to add pricing...</option>';
+        countries.forEach(function (c) {
+            countriesData[c.id] = c;
+            countryOptions += '<option value="' + c.id + '">' + escapeHtml(c.name) + ' (' + c.code + ')</option>';
+        });
+        $('#countryPicker').html(countryOptions).val('');
+        if ($('#countryPicker').data('select2')) {
+            $('#countryPicker').trigger('change.select2');
+        } else {
+            $('#countryPicker').select2({ placeholder: 'Select a country...', width: '280px' });
+        }
+
+        if (countries.length === 0) {
+            $('#countryPicker').prop('disabled', true);
+            $('#addCountryPriceBtn').prop('disabled', true);
+            $('#countryPickerHint').html('<span style="color:#DC2626;">This brand is not linked to any countries yet. Add countries for this brand first (Brands -&gt; Edit -&gt; Countries) before setting prices.</span>');
+        } else {
+            $('#countryPicker').prop('disabled', false);
+            $('#addCountryPriceBtn').prop('disabled', false);
+            $('#countryPickerHint').text('Only countries where the selected brand is present are listed here.');
+        }
+    }
+
+    // Used when the admin manually changes the brand -- unlike
+    // populateCountryOptions(), this also clears any price rows that were
+    // added for the previous brand's countries, since they no longer apply.
+    function resetCountryPickerForNewBrand(placeholderText) {
+        selectedCountryIds = [];
+        $('#priceRowsContainer').empty().append(
+            '<div style="color:var(--muted);font-size:.82rem;padding:10px 0;" id="noPricesMsg">' + placeholderText + '</div>'
+        );
+    }
+
+    $('#brand_id').on('change', function () {
+        var brandId = $(this).val();
+
+        if (!brandId) {
+            resetCountryPickerForNewBrand('Select a brand first...');
+            populateCountryOptions([]);
+            $('#countryPickerHint').text('Select a brand above -- only countries where that brand is present will be listed here.');
+            return;
+        }
+
+        resetCountryPickerForNewBrand('Loading countries...');
+
+        loadCountriesForBrand(brandId).done(function (res) {
+            if (!res.success) {
+                toast(res.message || 'Failed to load countries for this brand.', 'err');
+                populateCountryOptions([]);
+                return;
+            }
+            populateCountryOptions(res.countries);
+        }).fail(function (jqXHR) {
+            toast(describeAjaxFailure(jqXHR, 'Failed to load countries for this brand.'), 'err');
+            populateCountryOptions([]);
         });
     });
 
@@ -399,12 +506,9 @@ if (!$checkStmt->fetch()) {
         res.ingredients.forEach(function (i) { ingOptions += '<option value="' + i.id + '">' + escapeHtml(i.name) + '</option>'; });
         $('#ingredients').html(ingOptions).select2({ placeholder: 'Select ingredients...', width: '100%' });
 
-        var countryOptions = '<option value="">Select a country to add pricing...</option>';
-        res.countries.forEach(function (c) {
-            countriesData[c.id] = c;
-            countryOptions += '<option value="' + c.id + '">' + escapeHtml(c.name) + ' (' + c.code + ')</option>';
-        });
-        $('#countryPicker').html(countryOptions).select2({ placeholder: 'Select a country...', width: '280px' });
+        // Countries are populated separately (see populateCountryOptions),
+        // scoped to whichever brand ends up selected — not from the global list.
+        $('#countryPicker').select2({ placeholder: 'Select a brand first...', width: '280px' });
     }
 
     function populateForm(p) {
@@ -416,7 +520,11 @@ if (!$checkStmt->fetch()) {
         $('#meta_title').val(p.meta_title || '').trigger('input');
         $('#meta_description').val(p.meta_description || '').trigger('input');
 
-        $('#brand_id').val(p.brand_id).trigger('change');
+        // change.select2 (not plain 'change') so this only refreshes the
+        // select2 widget's display — it does NOT fire the brand_id 'change'
+        // handler that reloads/resets the country picker, since the correct
+        // brand-scoped countries were already loaded before populateForm ran.
+        $('#brand_id').val(p.brand_id).trigger('change.select2');
 
         // --- Category / Subcategory prefill ---
         // If the saved category has a parent, it's a child category: select the
@@ -444,8 +552,19 @@ if (!$checkStmt->fetch()) {
         renderGalleryPreview();
 
         // --- Prices ---
+        // Pass the country info that came back joined with each price row as
+        // a fallback — if this brand was since unlinked from that country
+        // (no longer in countriesData), the row still renders so the admin
+        // can see and remove it, instead of the saved price silently vanishing.
         (p.prices || []).forEach(function (pr) {
-            addPriceRow(pr.country_id, pr.regular_price, pr.discount_price);
+            var fallbackCountry = {
+                name: pr.country_name,
+                code: pr.country_code,
+                currency: pr.currency,
+                currency_symbol: pr.currency_symbol,
+                flag_html: pr.flag_html
+            };
+            addPriceRow(pr.country_id, pr.regular_price, pr.discount_price, fallbackCountry);
         });
 
         // --- Nutrition ---
@@ -461,23 +580,35 @@ if (!$checkStmt->fetch()) {
     }
 
     // --- Price rows ---
-    function addPriceRow(countryId, regularPrice, discountPrice) {
+    // fallbackCountry (optional): used only for prefilling saved prices whose
+    // country is no longer linked to this brand — keeps the row visible
+    // (flagged) instead of silently disappearing. Never used for the
+    // "Add" button flow, since the picker only ever offers linked countries.
+    function addPriceRow(countryId, regularPrice, discountPrice, fallbackCountry) {
         countryId = String(countryId);
         if (selectedCountryIds.indexOf(countryId) !== -1) return;
 
-        var country = countriesData[countryId];
+        var isStale = !countriesData[countryId];
+        var country = countriesData[countryId] || fallbackCountry;
         if (!country) return;
 
         selectedCountryIds.push(countryId);
         $('#noPricesMsg').hide();
 
+        var staleWarning = isStale
+            ? '<div style="grid-column:1/-1;font-size:.72rem;color:#DC2626;margin-top:4px;">' +
+              '<i class="fas fa-triangle-exclamation"></i> This brand is no longer linked to ' + escapeHtml(country.name) + '. Remove this price, or re-link the country under Brands &rarr; Edit &rarr; Countries.' +
+              '</div>'
+            : '';
+
         var rowHtml = '' +
-            '<div class="price-row" data-country-id="' + countryId + '">' +
+            '<div class="price-row" data-country-id="' + countryId + '"' + (isStale ? ' style="border:1px solid #DC2626;"' : '') + '>' +
                 '<div class="country-label">' + country.flag_html + ' ' + escapeHtml(country.name) + '</div>' +
                 '<div><input type="number" step="0.01" min="0" class="fi" placeholder="Regular price" name="prices[' + countryId + '][regular_price]" value="' + (regularPrice !== undefined && regularPrice !== null ? regularPrice : '') + '" required></div>' +
                 '<div><input type="number" step="0.01" min="0" class="fi" placeholder="Discount price (optional)" name="prices[' + countryId + '][discount_price]" value="' + (discountPrice !== undefined && discountPrice !== null ? discountPrice : '') + '"></div>' +
                 '<div style="font-size:.8rem;text-align:center;color:var(--muted);">' + escapeHtml(country.currency) + '</div>' +
                 '<div class="remove-price-row" title="Remove"><i class="fas fa-times"></i></div>' +
+                staleWarning +
             '</div>';
 
         $('#priceRowsContainer').append(rowHtml);

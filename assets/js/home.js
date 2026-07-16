@@ -305,8 +305,9 @@
         html += '<p class="fb-desc">' + escapeHtml(brand.short_description) + '</p>';
     }
 
-    // View all link — pushed to the right
-    html += '<div style="display:flex;justify-content:flex-end;">';
+    // View all link — pushed to the bottom of the card (fb-footer has
+    // margin-top:auto) and to the right within that row
+    html += '<div class="fb-footer">';
     html += '<a href="' + brand.url + '" class="fb-view-all">';
     html += 'View Menu <i class="fa-solid fa-arrow-right" style="font-size:0.75rem;"></i>';
     html += '</a>';

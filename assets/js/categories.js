@@ -126,7 +126,7 @@
 
         html += '<div class="col-lg-3 col-md-4 col-sm-6 col-6" data-aos="fade-up" data-aos-delay="' + delay + '">';
 
-        html += '    <div class="category-card" onclick="window.location.href=\'' + cat.url + '\'" style="height:240px;">';
+        html += '    <div class="category-card" onclick="window.location.href=\'' + cat.url + '\'">';
 
         // Category Image
         if (cat.image) {

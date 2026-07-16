@@ -172,13 +172,16 @@ requireLogin();
                         <div class="form-section-title"><i class="fas fa-money-bill-wave"></i> Pricing by Country</div>
 
                         <div style="margin-bottom:10px;">
-                            <select class="fss" id="countryPicker" style="width:280px;display:inline-block;">
-                                <option value="">Select a country to add pricing...</option>
+                            <select class="fss" id="countryPicker" style="width:280px;display:inline-block;" disabled>
+                                <option value="">Select a brand first...</option>
                             </select>
-                            <button type="button" class="bo" id="addCountryPriceBtn" style="margin-left:8px;">
+                            <button type="button" class="bo" id="addCountryPriceBtn" style="margin-left:8px;" disabled>
                                 <i class="fas fa-plus"></i> Add
                             </button>
                         </div>
+                        <small style="color:var(--muted);font-size:.72rem;display:block;margin-bottom:8px;" id="countryPickerHint">
+                            Select a brand above — only countries where that brand is present will be listed here.
+                        </small>
 
                         <div id="priceRowsContainer">
                             <div style="color:var(--muted);font-size:.82rem;padding:10px 0;" id="noPricesMsg">
@@ -360,13 +363,10 @@ requireLogin();
             });
             $('#ingredients').html(ingOptions).select2({ placeholder: 'Select ingredients...', width: '100%' });
 
-            // Countries — store for the price repeater
-            var countryOptions = '<option value="">Select a country to add pricing...</option>';
-            res.countries.forEach(function (c) {
-                countriesData[c.id] = c;
-                countryOptions += '<option value="' + c.id + '">' + escapeHtml(c.name) + ' (' + c.code + ')</option>';
-            });
-            $('#countryPicker').html(countryOptions).select2({ placeholder: 'Select a country...', width: '280px' });
+            // Countries are NOT loaded here — the picker only fills once a
+            // brand is chosen (see brand_id change handler below), and only
+            // shows countries where that brand is actually present.
+            $('#countryPicker').select2({ placeholder: 'Select a brand first...', width: '280px' });
         })
         .fail(function () {
             toast('Failed to load form data. Please refresh the page.', 'err');
@@ -377,6 +377,87 @@ requireLogin();
         if (str === null || str === undefined) return '';
         return $('<div>').text(str).html();
     }
+
+    // --- Country picker: scoped to the selected brand's countries only ---
+    function loadCountriesForBrand(brandId) {
+        return $.ajax({
+            url: '../../api/products/get-brand-countries.php',
+            type: 'GET',
+            data: { brand_id: brandId },
+            dataType: 'json'
+        });
+    }
+
+    // Turns a failed jqXHR into a readable message. Also logs the raw response
+    // to the console — a 200 status with a parse error usually means the
+    // "JSON" wasn't actually JSON (an HTML fallback page, a PHP warning
+    // printed before the real output, etc.), which is easiest to see raw.
+    function describeAjaxFailure(jqXHR, fallback) {
+        console.error('Request to ' + (jqXHR.responseURL || 'endpoint') + ' failed. Raw response:', jqXHR.responseText);
+
+        if (jqXHR.responseJSON && jqXHR.responseJSON.message) return jqXHR.responseJSON.message;
+        if (jqXHR.status === 0) return 'Network error — could not reach the server.';
+
+        if (jqXHR.status >= 200 && jqXHR.status < 300) {
+            // Request succeeded but the body wasn't valid JSON — almost always
+            // an HTML page (wrong route / missing file caught by a fallback)
+            // or a PHP warning printed before the JSON. See console for the raw response.
+            return (fallback || 'Request failed') + ' — server returned HTTP ' + jqXHR.status + ' but the response wasn\'t valid JSON (see browser console for the raw output).';
+        }
+        return (fallback || 'Request failed') + ' (HTTP ' + jqXHR.status + ' ' + (jqXHR.statusText || '') + ')';
+    }
+
+    function resetCountryPicker(placeholderText) {
+        countriesData = {};
+        selectedCountryIds = [];
+        $('#priceRowsContainer').empty().append(
+            '<div style="color:var(--muted);font-size:.82rem;padding:10px 0;" id="noPricesMsg">' + placeholderText + '</div>'
+        );
+        $('#countryPicker').html('<option value="">' + placeholderText + '</option>').val('').trigger('change.select2');
+        $('#countryPicker').prop('disabled', true);
+        $('#addCountryPriceBtn').prop('disabled', true);
+    }
+
+    $('#brand_id').on('change', function () {
+        var brandId = $(this).val();
+
+        if (!brandId) {
+            resetCountryPicker('Select a brand first...');
+            $('#countryPickerHint').text('Select a brand above — only countries where that brand is present will be listed here.');
+            return;
+        }
+
+        resetCountryPicker('Loading countries...');
+        $('#countryPickerHint').text('Loading countries for this brand...');
+
+        loadCountriesForBrand(brandId).done(function (res) {
+            if (!res.success) {
+                toast(res.message || 'Failed to load countries for this brand.', 'err');
+                resetCountryPicker('Failed to load countries');
+                return;
+            }
+
+            var countryOptions = '<option value="">Select a country to add pricing...</option>';
+            res.countries.forEach(function (c) {
+                countriesData[c.id] = c;
+                countryOptions += '<option value="' + c.id + '">' + escapeHtml(c.name) + ' (' + c.code + ')</option>';
+            });
+            $('#countryPicker').html(countryOptions).val('').trigger('change.select2');
+
+            if (res.countries.length === 0) {
+                $('#countryPicker').prop('disabled', true);
+                $('#addCountryPriceBtn').prop('disabled', true);
+                $('#countryPickerHint').html('<span style="color:#DC2626;">This brand is not linked to any countries yet. Add countries for this brand first (Brands &rarr; Edit &rarr; Countries) before setting prices.</span>');
+            } else {
+                $('#countryPicker').prop('disabled', false);
+                $('#addCountryPriceBtn').prop('disabled', false);
+                $('#countryPickerHint').text('Only countries where this brand is present are listed.');
+            }
+        }).fail(function (jqXHR) {
+            toast(describeAjaxFailure(jqXHR, 'Failed to load countries for this brand.'), 'err');
+            resetCountryPicker('Failed to load countries');
+        });
+    });
 
     // --- Add a country pricing row ---
     $('#addCountryPriceBtn').on('click', function () {

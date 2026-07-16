@@ -109,6 +109,14 @@ foreach ($nutritionFieldChecks as $field => $msg) {
     if ($msg !== null) $errors[$field] = $msg;
 }
 
+// --- Countries this brand is actually linked to (for the price check below) ---
+$validCountryIds = [];
+if ($brandId > 0 && !isset($errors['brand_id'])) {
+    $bcStmt = $pdo->prepare("SELECT country_id FROM brand_country WHERE brand_id = :brand_id");
+    $bcStmt->execute([':brand_id' => $brandId]);
+    $validCountryIds = array_map('intval', $bcStmt->fetchAll(PDO::FETCH_COLUMN));
+}
+
 // --- Validate prices ---
 $validatedPrices = [];
 foreach ($pricesInput as $countryId => $priceData) {
@@ -118,6 +126,10 @@ foreach ($pricesInput as $countryId => $priceData) {
 
     if ($countryId <= 0) continue;
 
+    if (!in_array($countryId, $validCountryIds, true)) {
+        $errors['prices'] = 'One or more selected countries are not linked to this brand. Remove them or link the country to the brand first (Brands → Edit → Countries).';
+        continue;
+    }
     if ($regular === null) { $errors['prices'] = 'Please enter a regular price for every added country.'; continue; }
     if ($regular < 0 || ($discount !== null && $discount < 0)) { $errors['prices'] = 'Prices cannot be negative.'; continue; }
     if ($discount !== null && $discount >= $regular) { $errors['prices'] = 'Discount price must be less than the regular price.'; continue; }

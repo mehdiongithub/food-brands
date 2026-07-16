@@ -58,7 +58,7 @@ try {
             INNER JOIN brand_country bc ON bc.brand_id = b.id
             INNER JOIN countries c ON c.id = bc.country_id AND c.status = 1
             WHERE b.status = 1 AND bc.country_id = ?
-            ORDER BY b.id DESC
+            ORDER BY b.id ASC
             LIMIT ?
         ");
         $stmt->execute([$countryId, $limit]);
@@ -214,33 +214,53 @@ try {
             ];
         }
 
-        // Get categories (with product counts for this brand, current country)
+        // Get PARENT categories only (with aggregated product counts + child
+        // ids), for the nav pills / filter checkboxes. brand_category rows
+        // are usually linked to the specific CHILD category a product sits
+        // in (e.g. "Zinger Burger"), not the parent ("Burger") — so every
+        // linked row is resolved up to its top-level parent (or itself, if
+        // it's already a leaf/top-level category) and de-duplicated. This
+        // mirrors the scoping already used in api/site/categories.php.
         $stmt = $db->prepare("
-            SELECT c.id, c.name, c.slug
+            SELECT DISTINCT
+                COALESCE(par.id, c.id)     AS id,
+                COALESCE(par.name, c.name) AS name,
+                COALESCE(par.slug, c.slug) AS slug
             FROM categories c
             INNER JOIN brand_category bc ON bc.category_id = c.id
+            LEFT JOIN categories par ON par.id = c.parent_id AND par.status = 1
             WHERE bc.brand_id = ? AND c.status = 1
-            ORDER BY c.name ASC
+            ORDER BY name ASC
         ");
         $stmt->execute([$brandId]);
         $catRows = $stmt->fetchAll();
 
         $categories = [];
         foreach ($catRows as $c) {
+            $parentId = (int) $c['id'];
+            // This parent's own id plus any of its children's ids, so the
+            // pill/filter count and the category-page-style grouping both
+            // include products assigned to child categories.
+            $scopeIds = expandCategoryIdsWithChildren($db, [$parentId]);
+            $childRows = getCategoryChildren($db, $parentId);
+
+            $scopePlaceholders = implode(',', array_fill(0, count($scopeIds), '?'));
             $stmtCnt = $db->prepare("
                 SELECT COUNT(DISTINCT p.id) AS total
                 FROM products p
                 INNER JOIN product_prices pp ON pp.product_id = p.id AND pp.country_id = ? AND pp.status = 1
-                WHERE p.brand_id = ? AND p.category_id = ? AND p.status = 1
+                WHERE p.brand_id = ? AND p.category_id IN ($scopePlaceholders) AND p.status = 1
             ");
-            $stmtCnt->execute([$countryId, $brandId, (int) $c['id']]);
+            $stmtCnt->execute(array_merge([$countryId, $brandId], $scopeIds));
             $catProductCount = (int) $stmtCnt->fetchColumn();
 
             $categories[] = [
-                'id'             => (int) $c['id'],
+                'id'             => $parentId,
                 'name'           => $c['name'],
                 'slug'           => $c['slug'],
                 'product_count'  => $catProductCount,
+                'is_parent'      => true,
+                'child_ids'      => array_values(array_map(function ($ch) { return (int) $ch['id']; }, $childRows)),
                 'url'            => BASE_URL . '/category/' . $c['slug']
             ];
         }
@@ -324,6 +344,12 @@ try {
         }
 
         if (!empty($catIds)) {
+            // catIds coming from the frontend are parent-category ids (the
+            // nav pills / filter checkboxes now only ever list parents).
+            // Products are always saved against a CHILD category id, so the
+            // filter must expand to the parent's children (a leaf/top-level
+            // category with no children simply expands to itself).
+            $catIds = expandCategoryIdsWithChildren($db, $catIds);
             $placeholders = implode(',', array_fill(0, count($catIds), '?'));
             $catFilterSql = " AND p.category_id IN ($placeholders) ";
             $catFilterParams = $catIds;

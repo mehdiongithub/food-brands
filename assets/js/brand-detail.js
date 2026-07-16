@@ -274,11 +274,6 @@
         var $name = $('#brand-name');
         if ($name.length) $name.text(brand.name);
 
-        var $desc = $('#brand-description');
-        if ($desc.length && brand.short_description) {
-            $desc.html(brand.short_description);
-        }
-
         var $statProducts = $('#brand-stat-products');
         if ($statProducts.length) $statProducts.text(brand.total_products || 0);
 
@@ -540,7 +535,8 @@
         var html = '';
         $.each(categories, function (i, cat) {
             if (!cat.product_count) return;
-            html += '<button type="button" class="menu-category-pill" data-cat-id="' + cat.id + '">';
+            var childIds = (cat.child_ids || []).join(',');
+            html += '<button type="button" class="menu-category-pill" data-cat-id="' + cat.id + '" data-child-ids="' + childIds + '">';
             html += escapeHtml(cat.name) + ' <span>' + cat.product_count + '</span>';
             html += '</button>';
         });
@@ -856,7 +852,20 @@
         // back to filtering by that category so it's guaranteed to show.
         $(document).on('click', '.menu-category-pill', function () {
             var catId = parseInt($(this).data('cat-id'));
+            var childIds = ($(this).data('child-ids') || '').toString().split(',').filter(Boolean).map(Number);
+
+            // The pill represents a parent category, but rendered sections
+            // are keyed by the product's own (child) category id — e.g.
+            // clicking "Burger" should jump to the first already-rendered
+            // "Chicken Burger" / "Beef Burger" section. A leaf/top-level
+            // category with no children still matches on its own id.
             var $section = $('#cat-section-' + catId);
+            if (!$section.length) {
+                for (var i = 0; i < childIds.length; i++) {
+                    var $candidate = $('#cat-section-' + childIds[i]);
+                    if ($candidate.length) { $section = $candidate; break; }
+                }
+            }
 
             $('.menu-category-pill').removeClass('active');
             $(this).addClass('active');

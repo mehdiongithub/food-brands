@@ -460,14 +460,19 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); font-weight: 700; lin
 .featured-brand-section {
   padding: 4rem 0; position: relative; overflow: hidden;
 }
+.featured-brand-section .swiper-wrapper { align-items: stretch; }
+.featured-brand-section .swiper-slide { height: auto; display: flex; }
 .featured-brand-card {
   background: var(--surface); border-radius: var(--radius-lg);
   overflow: hidden; box-shadow: var(--shadow-md);
   transition: all 0.4s ease; border: 1px solid var(--border-light);
+  display: flex; flex-direction: column; width: 100%; height: 100%;
+  position: relative; /* makes this card (not Swiper's own slide wrapper) the
+                          positioning anchor for .fb-logo below */
 }
 .featured-brand-card:hover { box-shadow: var(--shadow-xl); transform: translateY(-4px); }
 .fb-cover {
-  height: 180px; position: relative; overflow: hidden;
+  height: 180px; position: relative; overflow: hidden; flex-shrink: 0;
 }
 .fb-cover img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; }
 .featured-brand-card:hover .fb-cover img { transform: scale(1.05); }
@@ -475,16 +480,29 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); font-weight: 700; lin
   content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 60%;
   background: linear-gradient(transparent, rgba(0,0,0,0.5));
 }
+/* Anchored with top (tied to the fixed 180px cover height) instead of
+   bottom, so the badge always overlaps the cover/body boundary the same
+   way no matter how tall the equal-height card ends up being. */
 .fb-logo {
-  position: absolute; bottom: -25px; left: 1.25rem; z-index: 2;
+  position: absolute; top: 155px; left: 1.25rem; z-index: 2;
   width: 64px; height: 64px; border-radius: var(--radius-md);
   background: var(--surface); padding: 8px; box-shadow: var(--shadow-md);
   display: flex; align-items: center; justify-content: center;
 }
 .fb-logo img { width: 100%; height: 100%; object-fit: contain; }
-.fb-body { padding: 2rem 1.25rem 1.25rem; }
-.fb-name { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; margin-bottom: 0.4rem; }
-.fb-desc { font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.75rem; line-height: 1.5; }
+/* flex column so the "View Menu" footer always sits at the bottom,
+   no matter how many lines the name/description take up */
+.fb-body { padding: 2rem 1.25rem 1.25rem; flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
+.fb-name {
+  font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; margin-bottom: 0.4rem;
+  display: -webkit-box; -webkit-line-clamp: 1; line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+}
+/* Truncate to a fixed 3 lines with an ellipsis — a 300-char description
+   and a 30-char description now take up exactly the same space */
+.fb-desc {
+  font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.75rem; line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
 .fb-countries { display: flex; gap: 0.25rem; margin-bottom: 1rem; flex-wrap: wrap; }
 .fb-country-flag { font-size: 1.1rem; }
 .fb-categories .swiper { padding-bottom: 1.5rem; }
@@ -495,10 +513,13 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); font-weight: 700; lin
   white-space: nowrap; cursor: pointer; transition: all var(--transition);
 }
 .fb-cat-pill:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+/* Pushed to the bottom of the card via margin-top:auto, regardless of
+   how much text sits above it */
+.fb-footer { display: flex; justify-content: flex-end; margin-top: auto; padding-top: 0.5rem; }
 .fb-view-all {
   display: flex; align-items: center; gap: 0.5rem;
   font-size: 0.88rem; font-weight: 600; color: var(--primary);
-  margin-top: 0.75rem; cursor: pointer; transition: gap var(--transition);
+  cursor: pointer; transition: gap var(--transition);
 }
 .fb-view-all:hover { gap: 0.75rem; }
 
@@ -541,9 +562,10 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); font-weight: 700; lin
   overflow: hidden; box-shadow: var(--shadow-sm);
   border: 1px solid var(--border-light);
   transition: all 0.4s ease; position: relative;
+  display: flex; flex-direction: column; height: 100%;
 }
 .product-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-6px); }
-.pc-image { position: relative; height: 200px; overflow: hidden; background: var(--bg-alt); }
+.pc-image { position: relative; height: 200px; overflow: hidden; background: var(--bg-alt); flex-shrink: 0; }
 .pc-image img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
 .product-card:hover .pc-image img { transform: scale(1.08); }
 .pc-discount-badge {
@@ -568,19 +590,31 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); font-weight: 700; lin
 }
 .pc-action-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
 .pc-action-btn.favorited { color: var(--danger); }
-.pc-body { padding: 1rem; }
+/* flex column: whatever grows above pc-footer (name, description, meta)
+   is clamped, and pc-footer always lands at the same height */
+.pc-body { padding: 1rem; flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
 .pc-brand {
   display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;
 }
-.pc-brand img { width: 20px; height: 20px; object-fit: contain; }
-.pc-brand span { font-size: 0.75rem; color: var(--muted); font-weight: 500; }
-.pc-name { font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem; line-height: 1.3; }
-.pc-category { font-size: 0.78rem; color: var(--muted); margin-bottom: 0.75rem; }
-.pc-meta { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+.pc-brand img { width: 20px; height: 20px; object-fit: contain; flex-shrink: 0; }
+.pc-brand span { font-size: 0.75rem; color: var(--muted); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-name {
+  font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin-bottom: 0.25rem; line-height: 1.3;
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+/* Also reused on the Brands page as the brand's short description —
+   clamped to 2 lines with an ellipsis so a 300-char bio and a 30-char
+   bio take up exactly the same card height */
+.pc-category {
+  font-size: 0.78rem; color: var(--muted); margin-bottom: 0.75rem; line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.pc-meta { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
 .pc-meta span { font-size: 0.78rem; color: var(--text-secondary); display: flex; align-items: center; gap: 0.3rem; }
 .pc-meta i { color: var(--primary); font-size: 0.7rem; }
-.pc-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 0.75rem; border-top: 1px solid var(--border-light); }
-.pc-prices { display: flex; align-items: baseline; gap: 0.5rem; }
+/* margin-top:auto pins this to the bottom of the flex column every time */
+.pc-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 0.75rem; border-top: 1px solid var(--border-light); margin-top: auto; gap: 0.5rem; flex-wrap: wrap; }
+.pc-prices { display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
 .pc-original-price { font-size: 0.82rem; color: var(--muted); text-decoration: line-through; }
 .pc-current-price { font-size: 1.2rem; font-weight: 700; color: var(--primary); }
 .pc-view-btn {
@@ -596,6 +630,7 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); font-weight: 700; lin
   position: relative; border-radius: var(--radius-lg);
   overflow: hidden; height: 220px; cursor: pointer;
   box-shadow: var(--shadow-md); transition: all 0.4s ease;
+  display: block; width: 100%;
 }
 .category-card:hover { box-shadow: var(--shadow-xl); transform: translateY(-6px); }
 .category-card img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; }
@@ -610,37 +645,51 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); font-weight: 700; lin
   position: absolute; bottom: 0; left: 0; right: 0; z-index: 2;
   padding: 1.25rem;
 }
-.cc-name { font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; color: #fff; margin-bottom: 0.25rem; }
-.cc-info { font-size: 0.82rem; color: rgba(255,255,255,0.8); }
+/* One line + ellipsis so a long category name can never grow the
+   fixed-height card or push cc-info off in different spots */
+.cc-name {
+  font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; color: #fff; margin-bottom: 0.25rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cc-info { font-size: 0.82rem; color: rgba(255,255,255,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cc-discount {
   position: absolute; top: 0.75rem; right: 0.75rem; z-index: 2;
   padding: 0.3rem 0.7rem; border-radius: var(--radius-full);
   background: var(--danger); color: #fff; font-size: 0.72rem; font-weight: 700;
 }
 
-/* ========== Brand Cards (All Brands) ========== */
+/* ========== Brand Cards (Search Results) ========== */
 .brand-card {
   background: var(--surface); border-radius: var(--radius-md);
   overflow: hidden; border: 1px solid var(--border-light);
   box-shadow: var(--shadow-sm); transition: all 0.4s ease; cursor: pointer;
+  display: flex; flex-direction: column; height: 100%;
+  position: relative; /* anchor for .bc-logo below */
 }
 .brand-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-4px); }
-.bc-cover { height: 140px; overflow: hidden; position: relative; }
+.bc-cover { height: 140px; overflow: hidden; position: relative; flex-shrink: 0; }
 .bc-cover img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
 .brand-card:hover .bc-cover img { transform: scale(1.05); }
+/* top-based (tied to the fixed 140px cover height) instead of bottom, so
+   the badge always sits on the cover/body boundary regardless of card height */
 .bc-logo {
-  position: absolute; bottom: -22px; left: 1rem; z-index: 2;
+  position: absolute; top: 118px; left: 1rem; z-index: 2;
   width: 50px; height: 50px; border-radius: var(--radius-sm);
   background: var(--surface); padding: 6px; box-shadow: var(--shadow-md);
 }
 .bc-logo img { width: 100%; height: 100%; object-fit: contain; }
-.bc-body { padding: 1.75rem 1rem 1rem; }
-.bc-name { font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; margin-bottom: 0.3rem; }
-.bc-desc { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.75rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.bc-stats { display: flex; gap: 1rem; margin-bottom: 0.75rem; }
+.bc-body { padding: 1.75rem 1rem 1rem; flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
+.bc-name {
+  font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; margin-bottom: 0.3rem;
+  display: -webkit-box; -webkit-line-clamp: 1; line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
+}
+.bc-desc { font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.75rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* margin-top:auto so stats/footer always sit at the bottom of the card,
+   whether or not a footer is present below them */
+.bc-stats { display: flex; gap: 1rem; margin-bottom: 0.75rem; margin-top: auto; flex-wrap: wrap; }
 .bc-stat { font-size: 0.78rem; color: var(--muted); }
 .bc-stat strong { color: var(--text); font-weight: 600; }
-.bc-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 0.75rem; border-top: 1px solid var(--border-light); }
+.bc-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 0.75rem; border-top: 1px solid var(--border-light); margin-top: auto; }
 .bc-price { font-size: 0.85rem; color: var(--text-secondary); }
 .bc-price strong { color: var(--primary); font-weight: 700; }
 .bc-btn {
@@ -1196,6 +1245,26 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); font-weight: 700; lin
   .toolbar-left, .toolbar-right { justify-content: space-between; }
   .hero-filters { justify-content: center; }
   .country-selector .cs-text { display: none; }
+
+  /* Card images/heights trimmed on phones so the equal-height cards
+     don't get too tall; text stays clamped the same way as desktop. */
+  .fb-cover, .bc-cover { height: 150px; }
+  .pc-image { height: 170px; }
+  .category-card { height: 180px; }
+  .fb-desc { -webkit-line-clamp: 2; line-clamp: 2; }
+  /* Recompute logo badge offsets to match the shorter 150px cover */
+  .fb-logo { top: 125px; }
+  .bc-logo { top: 128px; }
+}
+@media (max-width: 480px) {
+  .fb-cover, .bc-cover { height: 130px; }
+  .pc-image { height: 150px; }
+  .category-card { height: 160px; }
+  .cc-name { font-size: 1.05rem; }
+  .fb-body, .pc-body, .bc-body { padding-left: 0.85rem; padding-right: 0.85rem; }
+  /* Recompute logo badge offsets to match the shorter 130px cover */
+  .fb-logo { top: 105px; }
+  .bc-logo { top: 108px; }
 }
 
 /* ========== Accessibility ========== */
