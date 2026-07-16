@@ -16,7 +16,7 @@ if ($id <= 0) {
 }
 
 // --- Confirm the category actually exists first ---
-$existingStmt = $pdo->prepare("SELECT id, image FROM categories WHERE id = :id LIMIT 1");
+$existingStmt = $pdo->prepare("SELECT id, image, parent_id FROM categories WHERE id = :id LIMIT 1");
 $existingStmt->execute([':id' => $id]);
 $existingCategory = $existingStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -25,6 +25,11 @@ if (!$existingCategory) {
     exit;
 }
 
+// --- Does this category currently have children of its own? ---
+$childCountStmt = $pdo->prepare("SELECT COUNT(*) FROM categories WHERE parent_id = :id");
+$childCountStmt->execute([':id' => $id]);
+$hasChildren = ((int) $childCountStmt->fetchColumn()) > 0;
+
 $errors = [];
 
 // --- Collect + trim inputs ---
@@ -32,6 +37,8 @@ $name        = trim($_POST['name'] ?? '');
 $description = trim($_POST['description'] ?? '');
 $sortOrder   = isset($_POST['sort_order']) ? (int)$_POST['sort_order'] : 0;
 $status      = isset($_POST['status']) ? (int)$_POST['status'] : 1;
+$parentIdRaw = trim($_POST['parent_id'] ?? '');
+$parentId    = ($parentIdRaw === '') ? null : (int) $parentIdRaw;
 
 // --- Validation ---
 if ($name === '') {
@@ -42,6 +49,27 @@ if ($name === '') {
 
 if ($sortOrder < 0) {
     $errors['sort_order'] = 'Sort order cannot be negative.';
+}
+
+// --- Validate parent category ---
+if ($parentId !== null) {
+    if ($parentId === $id) {
+        $errors['parent_id'] = 'A category cannot be its own parent.';
+    } elseif ($hasChildren) {
+        // This category already has children of its own — turning it into
+        // a child too would create a 3-level tree, which isn't supported.
+        $errors['parent_id'] = 'This category already has its own child categories, so it cannot be assigned a parent.';
+    } else {
+        $parentStmt = $pdo->prepare("SELECT id, parent_id FROM categories WHERE id = :id LIMIT 1");
+        $parentStmt->execute([':id' => $parentId]);
+        $parentRow = $parentStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$parentRow) {
+            $errors['parent_id'] = 'Selected parent category was not found.';
+        } elseif ($parentRow['parent_id'] !== null) {
+            $errors['parent_id'] = 'A child category cannot itself be used as a parent.';
+        }
+    }
 }
 
 // --- Sanitize rich text HTML ---
@@ -144,11 +172,12 @@ $finalImage = $imageChanged ? $newImagePath : $existingCategory['image'];
 try {
     $stmt = $pdo->prepare("
         UPDATE categories
-        SET name = :name, description = :description, image = :image,
+        SET parent_id = :parent_id, name = :name, description = :description, image = :image,
             status = :status, sort_order = :sort_order, updated_at = NOW()
         WHERE id = :id
     ");
     $stmt->execute([
+        ':parent_id'   => $parentId,
         ':name'        => $name,
         ':description' => $description !== '' ? $description : null,
         ':image'       => $finalImage,

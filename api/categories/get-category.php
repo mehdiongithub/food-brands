@@ -17,7 +17,7 @@ if ($id <= 0) {
 
 try {
     $stmt = $pdo->prepare("
-        SELECT id, name, slug, image, description, status, sort_order, created_at, updated_at
+        SELECT id, parent_id, name, slug, image, description, status, sort_order, created_at, updated_at
         FROM categories
         WHERE id = :id
         LIMIT 1
@@ -29,6 +29,13 @@ try {
         echo json_encode(["success" => false, "message" => "Category not found"]);
         exit;
     }
+
+    // How many children this category itself has — if > 0, the edit form
+    // must lock the Parent Category field (a category with children can't
+    // also become a child of something else).
+    $childStmt = $pdo->prepare("SELECT COUNT(*) FROM categories WHERE parent_id = :id");
+    $childStmt->execute([':id' => $id]);
+    $category['children_count'] = (int) $childStmt->fetchColumn();
 
     echo json_encode([
         "success" => true,

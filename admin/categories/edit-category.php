@@ -71,10 +71,19 @@ if (!$checkStmt->fetch()) {
 
                         <div class="row g-3">
 
-                            <div class="col-md-12">
+                            <div class="col-md-8">
                                 <label class="fl">Category Name <span style="color:red">*</span></label>
                                 <input type="text" class="fi" name="name" id="name" required maxlength="100">
                                 <div class="invalid-feedback" id="err_name"></div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="fl">Parent Category</label>
+                                <select class="fss" name="parent_id" id="parent_id" style="width:100%;">
+                                    <option value="">— None (Top Level) —</option>
+                                </select>
+                                <small id="childNotice" style="display:none;color:var(--muted);font-size:.72rem;">This category already has its own child categories, so it can't be assigned a parent.</small>
+                                <div class="invalid-feedback" id="err_parent_id"></div>
                             </div>
 
                             <div class="col-md-12">
@@ -178,15 +187,34 @@ if (!$checkStmt->fetch()) {
         $('#description').val(quill.root.innerHTML);
     });
 
-    // --- Load existing category data ---
+    // --- Load parent category options (excluding this category itself) + existing category data ---
     $(function () {
-        $.ajax({
+        var parentOptionsReq = $.ajax({
+            url: '../../api/categories/parent-categories.php',
+            type: 'GET',
+            data: { exclude_id: categoryId },
+            dataType: 'json'
+        });
+
+        var categoryReq = $.ajax({
             url: '../../api/categories/get-category.php',
             type: 'GET',
             data: { id: categoryId },
             dataType: 'json'
-        })
-        .done(function (res) {
+        });
+
+        $.when(parentOptionsReq, categoryReq).done(function (parentRes, catRes) {
+            var parentData = parentRes[0];
+            var res = catRes[0];
+
+            var options = '<option value="">— None (Top Level) —</option>';
+            if (parentData.success) {
+                parentData.data.forEach(function (c) {
+                    options += '<option value="' + c.id + '">' + $('<div>').text(c.name).html() + '</option>';
+                });
+            }
+            $('#parent_id').html(options);
+
             if (res.success) {
                 populateForm(res.data);
                 $('#loadingBox').hide();
@@ -195,8 +223,7 @@ if (!$checkStmt->fetch()) {
                 toast(res.message || 'Category not found', 'err');
                 $('#loadingBox').html('<p>' + (res.message || 'Category not found') + '</p>');
             }
-        })
-        .fail(function () {
+        }).fail(function () {
             toast('Failed to load category details', 'err');
             $('#loadingBox').html('<p>Something went wrong while loading this category.</p>');
         });
@@ -207,6 +234,15 @@ if (!$checkStmt->fetch()) {
         $('#sort_order').val(c.sort_order);
         $('#status').val(c.status);
         $('#existingImage').val(c.image || '');
+
+        // --- Parent category ---
+        if (c.children_count > 0) {
+            // This category already has its own children — it must stay top-level
+            $('#parent_id').val('').prop('disabled', true);
+            $('#childNotice').show();
+        } else {
+            $('#parent_id').val(c.parent_id || '');
+        }
 
         // Pre-fill Quill with existing HTML content
         if (c.description) {

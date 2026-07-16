@@ -267,12 +267,56 @@
 
     // ============================================================
     // RENDER PRODUCTS
+    // A parent category (e.g. "Pizza") groups its products under a
+    // heading per child category ("Small Pizza", "Medium Pizza", ...).
+    // A leaf/child category (or a parent with no children) just shows
+    // a flat grid, same as before.
     // ============================================================
     function renderProducts(products) {
-        var html = '';
+        var isParent = categoryData && categoryData.category && categoryData.category.is_parent;
+        var hasChildHeadings = isParent && categoryData.child_categories && categoryData.child_categories.length > 0;
+
+        if (!hasChildHeadings) {
+            var flatHtml = '';
+            $.each(products, function (i, p) {
+                flatHtml += buildProductCard(p, i);
+            });
+            $grid.html('<div class="row g-3">' + flatHtml + '</div>');
+            return;
+        }
+
+        // Group the currently-loaded page of products by their own
+        // (child) category id, preserving the server's ordering.
+        var groups = [];
+        var groupsByCatId = {};
+
         $.each(products, function (i, p) {
-            html += buildProductCard(p, i);
+            var catId = p.category_id;
+            if (!groupsByCatId[catId]) {
+                groupsByCatId[catId] = {
+                    id: catId,
+                    name: p.category_name || categoryData.category.name,
+                    products: []
+                };
+                groups.push(groupsByCatId[catId]);
+            }
+            groupsByCatId[catId].products.push(p);
         });
+
+        var html = '';
+        $.each(groups, function (gIndex, group) {
+            var isOwnCategory = group.id === categoryData.category.id;
+            html += '<div class="category-group" style="margin-bottom:2rem;">';
+            html += '<h3 class="category-group-heading" style="font-family:var(--font-display);font-size:1.15rem;font-weight:700;margin-bottom:1rem;padding-bottom:0.5rem;border-bottom:2px solid var(--border);">';
+            html += escapeHtml(isOwnCategory ? group.name : group.name);
+            html += '</h3>';
+            html += '<div class="row g-3">';
+            $.each(group.products, function (i, p) {
+                html += buildProductCard(p, i);
+            });
+            html += '</div></div>';
+        });
+
         $grid.html(html);
     }
 

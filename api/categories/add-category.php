@@ -15,6 +15,8 @@ $name        = trim($_POST['name'] ?? '');
 $description = trim($_POST['description'] ?? ''); // HTML from Quill — sanitized below
 $sortOrder   = isset($_POST['sort_order']) ? (int)$_POST['sort_order'] : 0;
 $status      = isset($_POST['status']) ? (int)$_POST['status'] : 1;
+$parentIdRaw = trim($_POST['parent_id'] ?? '');
+$parentId    = ($parentIdRaw === '') ? null : (int) $parentIdRaw;
 
 // --- Validation ---
 if ($name === '') {
@@ -25,6 +27,20 @@ if ($name === '') {
 
 if ($sortOrder < 0) {
     $errors['sort_order'] = 'Sort order cannot be negative.';
+}
+
+// --- Validate parent category (only top-level categories can be a parent,
+//     keeping the tree to a clean 2-level structure: Parent -> Child) ---
+if ($parentId !== null) {
+    $parentStmt = $pdo->prepare("SELECT id, parent_id FROM categories WHERE id = :id LIMIT 1");
+    $parentStmt->execute([':id' => $parentId]);
+    $parentRow = $parentStmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$parentRow) {
+        $errors['parent_id'] = 'Selected parent category was not found.';
+    } elseif ($parentRow['parent_id'] !== null) {
+        $errors['parent_id'] = 'A child category cannot itself be used as a parent.';
+    }
 }
 
 // --- Sanitize the rich text HTML before storing ---
@@ -130,11 +146,12 @@ try {
     $slug = generateCategorySlug($pdo, $name);
 
     $stmt = $pdo->prepare("
-        INSERT INTO categories (name, slug, image, description, status, sort_order, created_at, updated_at)
-        VALUES (:name, :slug, :image, :description, :status, :sort_order, NOW(), NOW())
+        INSERT INTO categories (parent_id, name, slug, image, description, status, sort_order, created_at, updated_at)
+        VALUES (:parent_id, :name, :slug, :image, :description, :status, :sort_order, NOW(), NOW())
     ");
 
     $stmt->execute([
+        ':parent_id'   => $parentId,
         ':name'        => $name,
         ':slug'        => $slug,
         ':image'       => $imagePath,

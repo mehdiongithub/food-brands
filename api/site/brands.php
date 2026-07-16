@@ -519,15 +519,20 @@ try {
         $searchParams[] = '%' . $search . '%';
     }
 
-    // Filter by category
+    // Filter by category — expand the selected (parent) category id to
+    // include its children as well, since brand_category rows are usually
+    // linked to the specific child category (e.g. Zinger Burger) rather
+    // than the parent (Burgers) itself.
     $catFilter = getInput('category_id');
     $catFilterSql = '';
     $catFilterParams = [];
 
     if ($catFilter) {
         $catFilter = (int) $catFilter;
-        $catFilterSql = " AND b.id IN (SELECT brand_id FROM brand_category WHERE category_id = ?) ";
-        $catFilterParams[] = $catFilter;
+        $catFilterIds = expandCategoryIdsWithChildren($db, [$catFilter]);
+        $catFilterPlaceholders = implode(',', array_fill(0, count($catFilterIds), '?'));
+        $catFilterSql = " AND b.id IN (SELECT brand_id FROM brand_category WHERE category_id IN ($catFilterPlaceholders)) ";
+        $catFilterParams = $catFilterIds;
     }
 
     // Filter by country (only brands available in selected country)
@@ -633,12 +638,19 @@ try {
         ];
     }
 
-    // Get available categories for filter sidebar
+    // Get available categories for filter sidebar — only TOP-LEVEL (parent)
+    // categories are listed here (e.g. "Pizza", "Burgers"), same as the nav
+    // and homepage. Child categories (Small Pizza, Zinger Burger, ...) are
+    // not shown individually in the filter; picking a parent below expands
+    // to match brands carrying any of its children too.
     $stmt = $db->query("
         SELECT c.id, c.name, c.slug,
-               (SELECT COUNT(DISTINCT bc.brand_id) FROM brand_category bc WHERE bc.category_id = c.id) AS brand_count
+               (SELECT COUNT(DISTINCT bc.brand_id)
+                FROM brand_category bc
+                WHERE bc.category_id IN (SELECT id FROM categories WHERE id = c.id OR parent_id = c.id)
+               ) AS brand_count
         FROM categories c
-        WHERE c.status = 1
+        WHERE c.status = 1 AND c.parent_id IS NULL
         ORDER BY c.name ASC
     ");
     $allCategories = $stmt->fetchAll();

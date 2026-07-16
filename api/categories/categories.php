@@ -20,13 +20,16 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete') {
     exit;
 }
 
-$columns = ['id', 'name', 'slug', 'status', 'sort_order', 'created_at','description','image'];
+// Must match the client-side `columns:` order in admin/categories/index.php:
+// 0 = Name, 1 = Parent (not orderable), 2 = Status, 3 = Actions (not orderable)
+$columns = ['name', 'parent_id', 'status', 'created_at'];
 
 $draw   = isset($_POST['draw']) ? (int)$_POST['draw'] : 1;
 $start  = isset($_POST['start']) ? (int)$_POST['start'] : 0;
 $length = isset($_POST['length']) ? (int)$_POST['length'] : 10;
 $searchValue = $_POST['search']['value'] ?? '';
 $statusFilter = $_POST['status_filter'] ?? '';
+$parentFilter = $_POST['parent_filter'] ?? ''; // '', 'parent' (top-level only), 'child' (children only)
 
 $orderColIndex = $_POST['order'][0]['column'] ?? 0;
 $orderDir = strtolower($_POST['order'][0]['dir'] ?? 'desc');
@@ -44,18 +47,24 @@ try {
     $params = [];
 
     if (!empty($searchValue)) {
-        $conditions[] = "(name LIKE :s OR slug LIKE :s)";
+        $conditions[] = "(c.name LIKE :s OR c.slug LIKE :s)";
         $params[':s'] = '%' . $searchValue . '%';
     }
 
     if ($statusFilter !== '') {
-        $conditions[] = "status = :status";
+        $conditions[] = "c.status = :status";
         $params[':status'] = (int)$statusFilter;
+    }
+
+    if ($parentFilter === 'parent') {
+        $conditions[] = "c.parent_id IS NULL";
+    } elseif ($parentFilter === 'child') {
+        $conditions[] = "c.parent_id IS NOT NULL";
     }
 
     $where = count($conditions) ? "WHERE " . implode(" AND ", $conditions) : '';
 
-    $filteredStmt = $pdo->prepare("SELECT COUNT(*) FROM categories $where");
+    $filteredStmt = $pdo->prepare("SELECT COUNT(*) FROM categories c $where");
     $filteredStmt->execute($params);
     $filteredRecords = (int)$filteredStmt->fetchColumn();
 
@@ -64,10 +73,12 @@ try {
         $limitClause = '';
     }
 
-    $sql = "SELECT id, name, slug, status, created_at, description, sort_order, image
-            FROM categories
+    $sql = "SELECT c.id, c.name, c.slug, c.status, c.created_at, c.description, c.sort_order, c.image,
+                   c.parent_id, p.name AS parent_name
+            FROM categories c
+            LEFT JOIN categories p ON p.id = c.parent_id
             $where
-            ORDER BY $orderCol $orderDir
+            ORDER BY c.$orderCol $orderDir
             $limitClause";
 
     $stmt = $pdo->prepare($sql);
@@ -89,6 +100,10 @@ try {
             ? '<span class="sb-badge2 active">Active</span>'
             : '<span class="sb-badge2 draft">Inactive</span>';
         $sort_order = $c['sort_order'];
+
+        $parentHtml = $c['parent_id']
+            ? '<span class="sb-badge2">' . htmlspecialchars($c['parent_name'] ?? 'Unknown') . '</span>'
+            : '<span class="sb-badge2 draft">Top Level</span>';
         if (!empty($c['image'])) {
             $avatarHtml = "<img class='ta' src='" . BASE_URL . "/" . htmlspecialchars($c['image']) . "' alt='$name'>";
         } else {
@@ -113,6 +128,7 @@ try {
 
         $data[] = [
             "name" => "<div class='tu'><span style='margin-right:8px;'>$avatarHtml</span><span class='tn'>$name</span></div>",
+            "parent" => $parentHtml,
             "status" => $status,
             "sort_order" => $sort_order,
             "actions" => $actions

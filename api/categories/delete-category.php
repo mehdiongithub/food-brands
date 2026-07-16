@@ -29,6 +29,7 @@ try {
     // --- Restrict delete: check every table that references this category ---
     // Each entry: [table, column, singular label, plural label]
     $dependencies = [
+        ['categories',     'parent_id',   'child category', 'child categories'],
         ['brand_category', 'category_id', 'brand',   'brands'],
         ['products',       'category_id', 'product', 'products'],
     ];

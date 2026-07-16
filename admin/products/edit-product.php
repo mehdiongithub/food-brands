@@ -132,11 +132,20 @@ if (!$checkStmt->fetch()) {
 
                             <div class="col-md-6">
                                 <label class="fl">Category <span style="color:red">*</span></label>
-                                <select class="fss" name="category_id" id="category_id" style="width:100%;" required>
+                                <select class="fss" id="category_parent_select" style="width:100%;" required>
                                     <option value="">Loading categories...</option>
                                 </select>
                                 <div class="invalid-feedback" id="err_category_id"></div>
                             </div>
+
+                            <div class="col-md-6" id="subcategoryWrap" style="display:none;">
+                                <label class="fl">Subcategory <span style="color:red">*</span></label>
+                                <select class="fss" id="category_child_select" style="width:100%;">
+                                    <option value="">Select a subcategory...</option>
+                                </select>
+                                <div class="invalid-feedback" id="err_subcategory"></div>
+                            </div>
+                            <input type="hidden" name="category_id" id="category_id" value="">
 
                             <div class="col-md-6">
                                 <label class="fl">Calories (shown in listings)</label>
@@ -305,6 +314,7 @@ if (!$checkStmt->fetch()) {
     var productId = $('#productId').val();
     var BASE_URL_JS = <?= json_encode(BASE_URL) ?>;
     var countriesData = {};
+    var childrenByParent = {}; // parent category id -> array of child category objects
     var selectedCountryIds = [];
 
     var existingImages = [];   // [{id, image, sort_order}]
@@ -370,9 +380,20 @@ if (!$checkStmt->fetch()) {
         res.brands.forEach(function (b) { brandOptions += '<option value="' + b.id + '">' + escapeHtml(b.name) + '</option>'; });
         $('#brand_id').html(brandOptions).select2({ placeholder: 'Select a brand...', width: '100%' });
 
+        // Category / Subcategory cascade — see childrenByParent below
+        childrenByParent = {};
+        res.categories.forEach(function (c) {
+            if (c.parent_id) {
+                if (!childrenByParent[c.parent_id]) childrenByParent[c.parent_id] = [];
+                childrenByParent[c.parent_id].push(c);
+            }
+        });
+
         var catOptions = '<option value="">Select a category...</option>';
-        res.categories.forEach(function (c) { catOptions += '<option value="' + c.id + '">' + escapeHtml(c.name) + '</option>'; });
-        $('#category_id').html(catOptions).select2({ placeholder: 'Select a category...', width: '100%' });
+        res.categories.forEach(function (c) {
+            if (!c.parent_id) catOptions += '<option value="' + c.id + '">' + escapeHtml(c.name) + '</option>';
+        });
+        $('#category_parent_select').html(catOptions).select2({ placeholder: 'Select a category...', width: '100%' });
 
         var ingOptions = '';
         res.ingredients.forEach(function (i) { ingOptions += '<option value="' + i.id + '">' + escapeHtml(i.name) + '</option>'; });
@@ -396,7 +417,18 @@ if (!$checkStmt->fetch()) {
         $('#meta_description').val(p.meta_description || '').trigger('input');
 
         $('#brand_id').val(p.brand_id).trigger('change');
-        $('#category_id').val(p.category_id).trigger('change');
+
+        // --- Category / Subcategory prefill ---
+        // If the saved category has a parent, it's a child category: select the
+        // parent (which loads its children), then select the actual child.
+        // Otherwise the saved category IS the top-level category.
+        if (p.category_parent_id) {
+            $('#category_parent_select').val(p.category_parent_id).trigger('change.select2');
+            updateSubcategoryOptions(p.category_parent_id, p.category_id);
+        } else {
+            $('#category_parent_select').val(p.category_id).trigger('change.select2');
+            updateSubcategoryOptions(p.category_id, '');
+        }
 
         if (p.description) quill.root.innerHTML = p.description;
         $('#description').val(p.description || '');
@@ -557,11 +589,60 @@ if (!$checkStmt->fetch()) {
         renderGalleryPreview();
     });
 
+    // --- Category / Subcategory cascade ---
+    function updateSubcategoryOptions(parentId, preselectChildId) {
+        var children = childrenByParent[parentId] || [];
+
+        if (children.length > 0) {
+            var opts = '<option value="">Select a subcategory...</option>';
+            children.forEach(function (c) {
+                opts += '<option value="' + c.id + '">' + escapeHtml(c.name) + '</option>';
+            });
+            $('#category_child_select').html(opts).val(preselectChildId || '');
+            if (!$('#category_child_select').data('select2')) {
+                $('#category_child_select').select2({ placeholder: 'Select a subcategory...', width: '100%' });
+            } else {
+                $('#category_child_select').trigger('change.select2');
+            }
+            $('#subcategoryWrap').show();
+            $('#category_id').val(preselectChildId || '');
+        } else {
+            $('#subcategoryWrap').hide();
+            $('#category_child_select').html('').val('');
+            $('#category_id').val(parentId || '');
+        }
+    }
+
+    $('#category_parent_select').on('change', function () {
+        var parentId = $(this).val();
+        updateSubcategoryOptions(parentId, '');
+    });
+
+    $(document).on('change', '#category_child_select', function () {
+        $('#category_id').val($(this).val() || '');
+    });
+
     // --- Submit ---
     $('#editProductForm').on('submit', function (e) {
         e.preventDefault();
 
         $('.invalid-feedback').text('');
+
+        // --- Category / Subcategory validation ---
+        var parentVal = $('#category_parent_select').val();
+        if (!parentVal) {
+            $('#err_category_id').text('Please select a category.');
+            return;
+        }
+        var hasChildren = (childrenByParent[parentVal] || []).length > 0;
+        if (hasChildren && !$('#category_child_select').val()) {
+            $('#err_subcategory').text('Please select a subcategory.');
+            return;
+        }
+        if (!$('#category_id').val()) {
+            $('#err_category_id').text('Please select a category.');
+            return;
+        }
 
         $('#description').val(quill.root.innerHTML);
         if (quill.getText().trim() === '') $('#description').val('');

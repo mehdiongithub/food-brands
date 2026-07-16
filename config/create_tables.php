@@ -80,6 +80,7 @@ CREATE TABLE IF NOT EXISTS brand_country (
 $tables['categories'] = "
 CREATE TABLE IF NOT EXISTS categories (
     id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    parent_id INT UNSIGNED DEFAULT NULL,
     name VARCHAR(100) NOT NULL,
     slug VARCHAR(120) UNIQUE,
     image VARCHAR(255),
@@ -87,7 +88,9 @@ CREATE TABLE IF NOT EXISTS categories (
     status TINYINT(1) DEFAULT 1,
     sort_order INT DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    KEY idx_categories_parent_id (parent_id),
+    CONSTRAINT fk_categories_parent FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ";
 

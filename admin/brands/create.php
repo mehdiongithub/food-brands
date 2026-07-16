@@ -157,7 +157,14 @@ $countries  = $pdo->query("SELECT id, name FROM countries WHERE status = 1 ORDER
 
                         <div class="row g-3">
                             <div class="col-md-6">
-                                <label class="fl">Categories</label>
+                                <label class="fl" style="display:flex;align-items:center;justify-content:space-between;">
+                                    <span>Categories</span>
+                                    <span style="font-size:.72rem;font-weight:600;">
+                                        <a href="#" class="select-all-link" data-target="#categories" style="color:var(--primary);text-decoration:none;">Select All</a>
+                                        <span style="color:var(--muted);">|</span>
+                                        <a href="#" class="clear-all-link" data-target="#categories" style="color:var(--muted);text-decoration:none;">Clear</a>
+                                    </span>
+                                </label>
                                 <select class="fss" name="categories[]" id="categories" multiple style="width:100%;">
                                     <?php foreach ($categories as $cat): ?>
                                         <option value="<?= $cat['id'] ?>"><?= htmlspecialchars($cat['name']) ?></option>
@@ -168,7 +175,14 @@ $countries  = $pdo->query("SELECT id, name FROM countries WHERE status = 1 ORDER
                             </div>
 
                             <div class="col-md-6">
-                                <label class="fl">Available Countries</label>
+                                <label class="fl" style="display:flex;align-items:center;justify-content:space-between;">
+                                    <span>Available Countries</span>
+                                    <span style="font-size:.72rem;font-weight:600;">
+                                        <a href="#" class="select-all-link" data-target="#countries" style="color:var(--primary);text-decoration:none;">Select All</a>
+                                        <span style="color:var(--muted);">|</span>
+                                        <a href="#" class="clear-all-link" data-target="#countries" style="color:var(--muted);text-decoration:none;">Clear</a>
+                                    </span>
+                                </label>
                                 <select class="fss" name="countries[]" id="countries" multiple style="width:100%;">
                                     <?php foreach ($countries as $ctry): ?>
                                         <option value="<?= $ctry['id'] ?>"><?= htmlspecialchars($ctry['name']) ?></option>
@@ -267,6 +281,20 @@ $countries  = $pdo->query("SELECT id, name FROM countries WHERE status = 1 ORDER
     // --- Select2 for categories & countries ---
     $('#categories').select2({ placeholder: 'Select categories...', width: '100%' });
     $('#countries').select2({ placeholder: 'Select countries...', width: '100%' });
+
+    // --- "Select All" / "Clear" links for the Categories & Countries multi-selects ---
+    $('.select-all-link').on('click', function (e) {
+        e.preventDefault();
+        var $select = $($(this).data('target'));
+        var allValues = $select.find('option').map(function () { return $(this).val(); }).get();
+        $select.val(allValues).trigger('change');
+    });
+
+    $('.clear-all-link').on('click', function (e) {
+        e.preventDefault();
+        var $select = $($(this).data('target'));
+        $select.val(null).trigger('change');
+    });
 
     // --- Quill rich text editor for History ---
     var quill = new Quill('#historyEditor', {

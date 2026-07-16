@@ -64,6 +64,12 @@ $isAdmin = (currentUserRole() === 'admin');
                             <option value="1">Active</option>
                             <option value="0">Inactive</option>
                         </select>
+
+                        <select class="fs" id="parentFilter">
+                            <option value="">All Categories</option>
+                            <option value="parent">Top Level Only</option>
+                            <option value="child">Child Categories Only</option>
+                        </select>
                     </div>
 
                     <div class="lt-r">
@@ -83,6 +89,7 @@ $isAdmin = (currentUserRole() === 'admin');
                                 <thead>
                                     <tr>
                                         <th>Name</th>
+                                        <th>Parent</th>
                                         <th>Status</th>
                                         <th>Actions</th>
                                     </tr>
@@ -155,10 +162,12 @@ $isAdmin = (currentUserRole() === 'admin');
                     type: "POST",
                     data: function(d) {
                         d.status_filter = $('#statusFilter').val();
+                        d.parent_filter = $('#parentFilter').val();
                     }
                 },
                 columns: [
                     { data: "name", orderable: true },
+                    { data: "parent", orderable: false },
                     { data: "status", orderable: true },
                     { data: "actions", orderable: false, searchable: false }
                 ],
@@ -189,6 +198,10 @@ $isAdmin = (currentUserRole() === 'admin');
             });
 
             $('#statusFilter').on('change', function() {
+                table.draw();
+            });
+
+            $('#parentFilter').on('change', function() {
                 table.draw();
             });
         });

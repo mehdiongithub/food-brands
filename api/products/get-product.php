@@ -22,7 +22,7 @@ try {
                p.description, p.calories, p.featured, p.status, p.meta_title, p.meta_description,
                p.created_by, p.created_at, p.updated_at,
                b.name AS brand_name, b.logo AS brand_logo,
-               c.name AS category_name,
+               c.name AS category_name, c.parent_id AS category_parent_id,
                u.name AS created_by_name
         FROM products p
         LEFT JOIN brands b ON b.id = p.brand_id

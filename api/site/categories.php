@@ -52,9 +52,10 @@ try {
             jsonResponse(['success' => false, 'message' => 'Category slug is required'], 400);
         }
 
-        // Get category
+        // Get category (including parent_id so we know if this is a
+        // top-level category or a child category)
         $stmt = $db->prepare("
-            SELECT id, name, slug, image, description
+            SELECT id, parent_id, name, slug, image, description
             FROM categories
             WHERE slug = ? AND status = 1
             LIMIT 1
@@ -68,38 +69,47 @@ try {
 
         $categoryId = (int) $category['id'];
 
-        // Get brands in this category that are available in current country
+        // If this is a top-level (parent) category, pull in its children
+        // (e.g. Pizza -> Small/Medium/Large Pizza). Products get grouped
+        // under a heading per child on the frontend. A child/leaf category
+        // has no children of its own, so it just behaves like a normal
+        // single-category page.
+        $childCategories = ($category['parent_id'] === null) ? getCategoryChildren($db, $categoryId) : [];
+        $scopeCategoryIds = array_merge([$categoryId], array_map(function ($c) { return (int) $c['id']; }, $childCategories));
+        $scopePlaceholders = implode(',', array_fill(0, count($scopeCategoryIds), '?'));
+
+        // Get brands in this category (+ children) that are available in current country
         $stmt = $db->prepare("
             SELECT DISTINCT b.id, b.name, b.slug, b.logo, b.short_description
             FROM brands b
-            INNER JOIN brand_category bc ON bc.brand_id = b.id AND bc.category_id = ?
+            INNER JOIN brand_category bc ON bc.brand_id = b.id AND bc.category_id IN ($scopePlaceholders)
             INNER JOIN brand_country bcr ON bcr.brand_id = b.id AND bcr.country_id = ?
             WHERE b.status = 1
             ORDER BY b.name ASC
         ");
-        $stmt->execute([$categoryId, $countryId]);
+        $stmt->execute(array_merge($scopeCategoryIds, [$countryId]));
         $brandRows = $stmt->fetchAll();
 
         $brands = [];
         foreach ($brandRows as $br) {
-            // Product count for this brand in this category + current country
+            // Product count for this brand in this category (+ children) + current country
             $stmt2 = $db->prepare("
                 SELECT COUNT(DISTINCT p.id) AS total
                 FROM products p
                 INNER JOIN product_prices pp ON pp.product_id = p.id AND pp.country_id = ? AND pp.status = 1
-                WHERE p.brand_id = ? AND p.category_id = ? AND p.status = 1
+                WHERE p.brand_id = ? AND p.category_id IN ($scopePlaceholders) AND p.status = 1
             ");
-            $stmt2->execute([$countryId, (int) $br['id'], $categoryId]);
+            $stmt2->execute(array_merge([$countryId, (int) $br['id']], $scopeCategoryIds));
             $pCount = (int) $stmt2->fetchColumn();
 
-            // Min price for this brand in this category + current country
+            // Min price for this brand in this category (+ children) + current country
             $stmt3 = $db->prepare("
                 SELECT MIN(COALESCE(pp.discount_price, pp.regular_price)) AS min_price
                 FROM product_prices pp
-                INNER JOIN products p ON p.id = pp.product_id AND p.status = 1 AND p.category_id = ?
+                INNER JOIN products p ON p.id = pp.product_id AND p.status = 1 AND p.category_id IN ($scopePlaceholders)
                 WHERE pp.country_id = ? AND p.brand_id = ? AND pp.status = 1
             ");
-            $stmt3->execute([$categoryId, $countryId, (int) $br['id']]);
+            $stmt3->execute(array_merge($scopeCategoryIds, [$countryId, (int) $br['id']]));
             $priceInfo = $stmt3->fetch();
 
             $minPrice = $priceInfo['min_price'] !== null ? (float) $priceInfo['min_price'] : null;
@@ -169,58 +179,67 @@ try {
             $searchParams[] = '%' . $search . '%';
         }
 
-        // Sort
+        // Sort. $sortColumnOnly (no "ORDER BY" keyword) is used inside the
+        // products fetch query, appended AFTER grouping by category, so
+        // products stay clustered under their child-category heading instead
+        // of the sort field interleaving Small/Medium/Large Pizza together.
         $sort = getInput('sort', 'newest');
-        $sortSql = " ORDER BY p.id DESC ";
-        if ($sort === 'price_low') $sortSql = " ORDER BY price ASC ";
-        if ($sort === 'price_high') $sortSql = " ORDER BY price DESC ";
-        if ($sort === 'name_asc') $sortSql = " ORDER BY p.name ASC ";
-        if ($sort === 'name_desc') $sortSql = " ORDER BY p.name DESC ";
-        if ($sort === 'calories_low') $sortSql = " ORDER BY p.calories ASC ";
-        if ($sort === 'calories_high') $sortSql = " ORDER BY p.calories DESC ";
+        $sortColumnOnly = "p.id DESC";
+        if ($sort === 'price_low') $sortColumnOnly = "price ASC";
+        if ($sort === 'price_high') $sortColumnOnly = "price DESC";
+        if ($sort === 'name_asc') $sortColumnOnly = "p.name ASC";
+        if ($sort === 'name_desc') $sortColumnOnly = "p.name DESC";
+        if ($sort === 'calories_low') $sortColumnOnly = "p.calories ASC";
+        if ($sort === 'calories_high') $sortColumnOnly = "p.calories DESC";
 
-        // Price bounds across ALL products in this category (unfiltered) —
-        // used to size the price range slider on the frontend.
+        // Price bounds across ALL products in this category + its children
+        // (unfiltered) — used to size the price range slider on the frontend.
         $stmt = $db->prepare("
             SELECT MIN(COALESCE(pp.discount_price, pp.regular_price)) AS min_price,
                    MAX(COALESCE(pp.discount_price, pp.regular_price)) AS max_price
             FROM products p
             INNER JOIN product_prices pp ON pp.product_id = p.id AND pp.country_id = ? AND pp.status = 1
-            WHERE p.category_id = ? AND p.status = 1
+            WHERE p.category_id IN ($scopePlaceholders) AND p.status = 1
         ");
-        $stmt->execute([$countryId, $categoryId]);
+        $stmt->execute(array_merge([$countryId], $scopeCategoryIds));
         $boundsRow = $stmt->fetch();
         $priceBounds = [
             'min' => $boundsRow && $boundsRow['min_price'] !== null ? (float) $boundsRow['min_price'] : 0,
             'max' => $boundsRow && $boundsRow['max_price'] !== null ? (float) $boundsRow['max_price'] : 0
         ];
 
-        // Count total products
-        $countParams = array_merge([$countryId, $categoryId], $brandParams, $priceParams, $searchParams);
+        // Count total products (this category + its children, e.g. Pizza
+        // page counts Small/Medium/Large Pizza products too)
+        $countParams = array_merge([$countryId], $scopeCategoryIds, $brandParams, $priceParams, $searchParams);
         $stmt = $db->prepare("
             SELECT COUNT(DISTINCT p.id) AS total
             FROM products p
             INNER JOIN product_prices pp ON pp.product_id = p.id AND pp.country_id = ? AND pp.status = 1
-            WHERE p.category_id = ? AND p.status = 1
+            WHERE p.category_id IN ($scopePlaceholders) AND p.status = 1
             $brandSql $priceSql $searchSql
         ");
         $stmt->execute($countParams);
         $totalProducts = (int) $stmt->fetchColumn();
 
-        // Fetch products
-        $fetchParams = array_merge([$countryId, $categoryId], $brandParams, $priceParams, $searchParams, [$per_page, $offset]);
+        // Fetch products (this category + its children). c2.id/name is the
+        // product's OWN (possibly child) category — used by the frontend to
+        // group products under a heading per child category, e.g. visiting
+        // "Pizza" shows a "Small Pizza" heading, "Medium Pizza" heading, etc.
+        $fetchParams = array_merge([$countryId], $scopeCategoryIds, $brandParams, $priceParams, $searchParams, [$per_page, $offset]);
         $stmt = $db->prepare("
             SELECT p.id, p.name, p.slug, p.image, p.short_description, p.calories, p.featured,
-                   p.brand_id,
+                   p.brand_id, p.category_id AS product_category_id,
+                   c2.name AS product_category_name, c2.slug AS product_category_slug,
                    b.name AS brand_name, b.slug AS brand_slug, b.logo AS brand_logo,
                    pp.regular_price, pp.discount_price, pp.currency AS price_currency,
                    COALESCE(pp.discount_price, pp.regular_price) AS price
             FROM products p
             INNER JOIN product_prices pp ON pp.product_id = p.id AND pp.country_id = ? AND pp.status = 1
             INNER JOIN brands b ON b.id = p.brand_id AND b.status = 1
-            WHERE p.category_id = ? AND p.status = 1
+            INNER JOIN categories c2 ON c2.id = p.category_id
+            WHERE p.category_id IN ($scopePlaceholders) AND p.status = 1
             $brandSql $priceSql $searchSql
-            $sortSql
+            ORDER BY (p.category_id = $categoryId) DESC, p.category_id ASC, $sortColumnOnly
             LIMIT ? OFFSET ?
         ");
         $stmt->execute($fetchParams);
@@ -251,6 +270,10 @@ try {
                 'brand_name'        => $p['brand_name'],
                 'brand_slug'        => $p['brand_slug'],
                 'brand_logo'        => asset_url($p['brand_logo']),
+                'category_id'       => (int) $p['product_category_id'],
+                'category_name'     => $p['product_category_name'],
+                'category_slug'     => $p['product_category_slug'],
+                'category_url'      => BASE_URL . '/category/' . $p['product_category_slug'],
                 'regular_price'     => $p['regular_price'] !== null ? (float) $p['regular_price'] : null,
                 'discount_price'    => $p['discount_price'] !== null ? (float) $p['discount_price'] : null,
                 'has_discount'      => $hasDiscount,
@@ -262,14 +285,14 @@ try {
             ];
         }
 
-        // Total product count across ALL countries for this category
-        $stmt = $db->prepare("SELECT COUNT(*) FROM products WHERE category_id = ? AND status = 1");
-        $stmt->execute([$categoryId]);
+        // Total product count across ALL countries for this category + children
+        $stmt = $db->prepare("SELECT COUNT(*) FROM products WHERE category_id IN ($scopePlaceholders) AND status = 1");
+        $stmt->execute($scopeCategoryIds);
         $allProductCount = (int) $stmt->fetchColumn();
 
-        // Total brand count for this category
-        $stmt = $db->prepare("SELECT COUNT(DISTINCT brand_id) FROM brand_category WHERE category_id = ?");
-        $stmt->execute([$categoryId]);
+        // Total brand count for this category + children
+        $stmt = $db->prepare("SELECT COUNT(DISTINCT brand_id) FROM brand_category WHERE category_id IN ($scopePlaceholders)");
+        $stmt->execute($scopeCategoryIds);
         $allBrandCount = (int) $stmt->fetchColumn();
 
         // Build Schema.org JSON-LD
@@ -291,8 +314,16 @@ try {
                 'description'     => $category['description'],
                 'total_products'  => $allProductCount,
                 'total_brands'    => $allBrandCount,
+                'is_parent'       => ($category['parent_id'] === null),
                 'url'             => BASE_URL . '/category/' . $category['slug']
             ],
+            'child_categories' => array_map(function ($c) {
+                return [
+                    'id'   => (int) $c['id'],
+                    'name' => $c['name'],
+                    'slug' => $c['slug']
+                ];
+            }, $childCategories),
             'brands'         => $brands,
             'price_bounds'   => [
                 'min' => (int) floor($priceBounds['min']),
@@ -342,41 +373,48 @@ try {
     if ($sort === 'newest') $sortSql = " ORDER BY c.id DESC ";
 
     // Count total categories
-    // Only count categories that actually have at least one product
-    // priced/available in the CURRENT country (EXISTS scoped to $countryId).
-    // This keeps pagination/"total_items" consistent with what is shown.
+    // Only TOP-LEVEL (parent) categories are listed here — child categories
+    // (e.g. Small Pizza) are shown grouped inside their parent's detail page
+    // instead. Only count categories that actually have at least one product
+    // priced/available in the CURRENT country, counting products assigned
+    // directly to this category OR to any of its child categories
+    // (EXISTS scoped to $countryId). This keeps pagination/"total_items"
+    // consistent with what is shown.
     $countParams = array_merge($searchParams, [$countryId]);
     $stmt = $db->prepare("
         SELECT COUNT(DISTINCT c.id) AS total
         FROM categories c
-        WHERE c.status = 1
+        WHERE c.status = 1 AND c.parent_id IS NULL
         $searchSql
         AND EXISTS (
             SELECT 1
             FROM products p
             INNER JOIN product_prices pp ON pp.product_id = p.id AND pp.country_id = ? AND pp.status = 1
-            WHERE p.category_id = c.id AND p.status = 1
+            WHERE p.category_id IN (SELECT id FROM categories WHERE id = c.id OR parent_id = c.id)
+              AND p.status = 1
         )
     ");
     $stmt->execute($countParams);
     $totalCategories = (int) $stmt->fetchColumn();
 
     // Fetch categories with product/brand counts for current country
+    // (counts include products/brands under this category's children too)
     $fetchParams = array_merge($searchParams, [$countryId, $countryId, $per_page, $offset]);
     $stmt = $db->prepare("
         SELECT c.id, c.name, c.slug, c.image, c.description, c.sort_order,
                (SELECT COUNT(DISTINCT p.id)
                 FROM products p
                 INNER JOIN product_prices pp ON pp.product_id = p.id AND pp.country_id = ? AND pp.status = 1
-                WHERE p.category_id = c.id AND p.status = 1
+                WHERE p.category_id IN (SELECT id FROM categories WHERE id = c.id OR parent_id = c.id)
+                  AND p.status = 1
                ) AS product_count,
                (SELECT COUNT(DISTINCT bc.brand_id)
                 FROM brand_category bc
                 INNER JOIN brand_country bcr ON bcr.brand_id = bc.brand_id AND bcr.country_id = ?
-                WHERE bc.category_id = c.id
+                WHERE bc.category_id IN (SELECT id FROM categories WHERE id = c.id OR parent_id = c.id)
                ) AS brand_count
         FROM categories c
-        WHERE c.status = 1
+        WHERE c.status = 1 AND c.parent_id IS NULL
         $searchSql
         GROUP BY c.id
         HAVING product_count > 0
@@ -393,31 +431,37 @@ try {
 
     $categories = [];
     foreach ($rows as $r) {
-        // Get min price across all products in this category for current country
+        // This category's id plus any of its children's ids — used so a
+        // parent category's card reflects prices/brands/images across all
+        // of its subcategories too.
+        $catIdSet = expandCategoryIdsWithChildren($db, [(int) $r['id']]);
+        $catIdPlaceholders = implode(',', array_fill(0, count($catIdSet), '?'));
+
+        // Get min price across all products in this category (+ children) for current country
         $stmt2 = $db->prepare("
             SELECT MIN(COALESCE(pp.discount_price, pp.regular_price)) AS min_price,
                    MAX(COALESCE(pp.discount_price, pp.regular_price)) AS max_price
             FROM product_prices pp
-            INNER JOIN products p ON p.id = pp.product_id AND p.status = 1 AND p.category_id = ?
+            INNER JOIN products p ON p.id = pp.product_id AND p.status = 1 AND p.category_id IN ($catIdPlaceholders)
             WHERE pp.country_id = ? AND pp.status = 1
         ");
-        $stmt2->execute([(int) $r['id'], $countryId]);
+        $stmt2->execute(array_merge($catIdSet, [$countryId]));
         $priceInfo = $stmt2->fetch();
 
         $minPrice = $priceInfo['min_price'] !== null ? (float) $priceInfo['min_price'] : null;
         $maxPrice = $priceInfo['max_price'] !== null ? (float) $priceInfo['max_price'] : null;
 
-        // Get top brands in this category (limit 3)
+        // Get top brands in this category + children (limit 3)
         $stmt3 = $db->prepare("
             SELECT DISTINCT b.id, b.name, b.slug, b.logo
             FROM brands b
-            INNER JOIN brand_category bc ON bc.brand_id = b.id AND bc.category_id = ?
+            INNER JOIN brand_category bc ON bc.brand_id = b.id AND bc.category_id IN ($catIdPlaceholders)
             INNER JOIN brand_country bcr ON bcr.brand_id = b.id AND bcr.country_id = ?
             WHERE b.status = 1
             ORDER BY b.name ASC
             LIMIT 3
         ");
-        $stmt3->execute([(int) $r['id'], $countryId]);
+        $stmt3->execute(array_merge($catIdSet, [$countryId]));
         $topBrandRows = $stmt3->fetchAll();
 
         $topBrands = [];
@@ -431,16 +475,16 @@ try {
             ];
         }
 
-        // Get a sample product image for the category card
+        // Get a sample product image for the category card (from this category or a child)
         $stmt4 = $db->prepare("
             SELECT p.image
             FROM products p
             INNER JOIN product_prices pp ON pp.product_id = p.id AND pp.country_id = ? AND pp.status = 1
-            WHERE p.category_id = ? AND p.status = 1 AND p.image IS NOT NULL AND p.image != ''
+            WHERE p.category_id IN ($catIdPlaceholders) AND p.status = 1 AND p.image IS NOT NULL AND p.image != ''
             ORDER BY p.featured DESC, RAND()
             LIMIT 1
         ");
-        $stmt4->execute([$countryId, (int) $r['id']]);
+        $stmt4->execute(array_merge([$countryId], $catIdSet));
         $sampleProduct = $stmt4->fetch();
 
         $cardImage = asset_url($r['image']);

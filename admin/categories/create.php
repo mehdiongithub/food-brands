@@ -55,10 +55,19 @@ requireLogin();
 
                         <div class="row g-3">
 
-                            <div class="col-md-12">
+                            <div class="col-md-8">
                                 <label class="fl">Category Name <span style="color:red">*</span></label>
                                 <input type="text" class="fi" name="name" id="name" required maxlength="100" placeholder="Enter Category">
                                 <div class="invalid-feedback" id="err_name"></div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="fl">Parent Category</label>
+                                <select class="fss" name="parent_id" id="parent_id" style="width:100%;">
+                                    <option value="">— None (Top Level) —</option>
+                                </select>
+                                <small style="color:var(--muted);font-size:.72rem;">Leave empty for a top-level category (e.g. Pizza). Pick a parent to make this a child (e.g. Small Pizza under Pizza).</small>
+                                <div class="invalid-feedback" id="err_parent_id"></div>
                             </div>
 
                             <div class="col-md-12 mb-5">
@@ -151,6 +160,21 @@ requireLogin();
     // Sync Quill's HTML content into the hidden textarea before submit
     quill.on('text-change', function () {
         $('#description').val(quill.root.innerHTML);
+    });
+
+    // --- Load parent category options (top-level categories only) ---
+    $.ajax({
+        url: '../../api/categories/parent-categories.php',
+        type: 'GET',
+        dataType: 'json'
+    }).done(function (res) {
+        if (res.success) {
+            var options = '<option value="">— None (Top Level) —</option>';
+            res.data.forEach(function (c) {
+                options += '<option value="' + c.id + '">' + $('<div>').text(c.name).html() + '</option>';
+            });
+            $('#parent_id').html(options);
+        }
     });
 
     // --- Live image preview ---

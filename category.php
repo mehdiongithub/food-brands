@@ -218,8 +218,10 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     </div>
 
-                    <!-- Products Grid -->
-                    <div id="cat-products-grid" class="row g-3" style="display:none;">
+                    <!-- Products Grid — either a flat .row (leaf category) or
+                         one .row per child-category heading (parent category),
+                         both built entirely by category-detail.js -->
+                    <div id="cat-products-grid" style="display:none;">
                         <!-- Populated by category-detail.js via AJAX -->
                     </div>
 

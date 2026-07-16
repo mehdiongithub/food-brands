@@ -152,6 +152,7 @@ if (!$checkStmt->fetch()) {
             '<div class="row g-3">' +
                 field('Category Name', c.name) +
                 field('Slug', c.slug || '—') +
+                field('Parent Category', c.parent_name || 'Top Level') +
                 field('Sort Order', c.sort_order) +
                 fieldHtml('Status', statusBadge) +
                 field('Created At', created) +

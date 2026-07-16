@@ -104,11 +104,20 @@ requireLogin();
 
                             <div class="col-md-6">
                                 <label class="fl">Category <span style="color:red">*</span></label>
-                                <select class="fss" name="category_id" id="category_id" style="width:100%;" required>
+                                <select class="fss" id="category_parent_select" style="width:100%;" required>
                                     <option value="">Loading categories...</option>
                                 </select>
                                 <div class="invalid-feedback" id="err_category_id"></div>
                             </div>
+
+                            <div class="col-md-6" id="subcategoryWrap" style="display:none;">
+                                <label class="fl">Subcategory <span style="color:red">*</span></label>
+                                <select class="fss" id="category_child_select" style="width:100%;">
+                                    <option value="">Select a subcategory...</option>
+                                </select>
+                                <div class="invalid-feedback" id="err_subcategory"></div>
+                            </div>
+                            <input type="hidden" name="category_id" id="category_id" value="">
 
                             <div class="col-md-6">
                                 <label class="fl">Calories (shown in listings)</label>
@@ -280,6 +289,7 @@ requireLogin();
         }
     var BASE_URL_JS = <?= json_encode(BASE_URL) ?>;
     var countriesData = {}; // id -> country object, populated after AJAX load
+    var childrenByParent = {}; // parent category id -> array of child category objects
     var selectedCountryIds = [];
 
     // --- Quill ---
@@ -323,12 +333,25 @@ requireLogin();
             });
             $('#brand_id').html(brandOptions).select2({ placeholder: 'Select a brand...', width: '100%' });
 
-            // Category (single select)
+            // Category / Subcategory cascade — parents (parent_id null) go in the
+            // main "Category" select; children are grouped by parent_id and only
+            // revealed in the "Subcategory" select once a parent with children
+            // is chosen (e.g. Pizza -> Small/Medium/Large Pizza).
+            childrenByParent = {};
+            res.categories.forEach(function (c) {
+                if (c.parent_id) {
+                    if (!childrenByParent[c.parent_id]) childrenByParent[c.parent_id] = [];
+                    childrenByParent[c.parent_id].push(c);
+                }
+            });
+
             var catOptions = '<option value="">Select a category...</option>';
             res.categories.forEach(function (c) {
-                catOptions += '<option value="' + c.id + '">' + escapeHtml(c.name) + '</option>';
+                if (!c.parent_id) {
+                    catOptions += '<option value="' + c.id + '">' + escapeHtml(c.name) + '</option>';
+                }
             });
-            $('#category_id').html(catOptions).select2({ placeholder: 'Select a category...', width: '100%' });
+            $('#category_parent_select').html(catOptions).select2({ placeholder: 'Select a category...', width: '100%' });
 
             // Ingredients (multi select)
             var ingOptions = '';
@@ -400,6 +423,37 @@ requireLogin();
         }
     });
 
+    // --- Category / Subcategory cascade ---
+    function updateSubcategoryOptions(parentId, preselectChildId) {
+        var children = childrenByParent[parentId] || [];
+
+        if (children.length > 0) {
+            var opts = '<option value="">Select a subcategory...</option>';
+            children.forEach(function (c) {
+                opts += '<option value="' + c.id + '">' + escapeHtml(c.name) + '</option>';
+            });
+            $('#category_child_select').html(opts).val(preselectChildId || '').trigger('change.select2');
+            if (!$('#category_child_select').data('select2')) {
+                $('#category_child_select').select2({ placeholder: 'Select a subcategory...', width: '100%' });
+            }
+            $('#subcategoryWrap').show();
+            $('#category_id').val(preselectChildId || '');
+        } else {
+            $('#subcategoryWrap').hide();
+            $('#category_child_select').html('').val('');
+            $('#category_id').val(parentId || '');
+        }
+    }
+
+    $('#category_parent_select').on('change', function () {
+        var parentId = $(this).val();
+        updateSubcategoryOptions(parentId, '');
+    });
+
+    $(document).on('change', '#category_child_select', function () {
+        $('#category_id').val($(this).val() || '');
+    });
+
     // --- Gallery images ---
     var galleryFiles = [];
 
@@ -445,6 +499,22 @@ requireLogin();
         e.preventDefault();
 
         $('.invalid-feedback').text('');
+
+        // --- Category / Subcategory validation ---
+        var parentVal = $('#category_parent_select').val();
+        if (!parentVal) {
+            $('#err_category_id').text('Please select a category.');
+            return;
+        }
+        var hasChildren = (childrenByParent[parentVal] || []).length > 0;
+        if (hasChildren && !$('#category_child_select').val()) {
+            $('#err_subcategory').text('Please select a subcategory.');
+            return;
+        }
+        if (!$('#category_id').val()) {
+            $('#err_category_id').text('Please select a category.');
+            return;
+        }
 
         $('#description').val(quill.root.innerHTML);
         if (quill.getText().trim() === '') $('#description').val('');

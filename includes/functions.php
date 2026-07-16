@@ -179,3 +179,62 @@ function pageTitle($custom = '', $suffix = true) {
     }
     return $siteName;
 }
+
+/**
+ * ============================================================
+ * CATEGORY PARENT / CHILD HELPERS
+ * ============================================================
+ * Categories support one level of nesting: a top-level ("parent")
+ * category (parent_id IS NULL, e.g. "Pizza") can have child
+ * categories under it (e.g. "Small Pizza", "Medium Pizza",
+ * "Large Pizza"). Only parent categories are shown in nav menus,
+ * category grids, and filter dropdowns across the site; visiting a
+ * parent category shows all of its children's products grouped
+ * under a heading per child.
+ */
+
+/**
+ * Get the child category rows (id, name, slug, image) for a given
+ * parent category id. Only active (status = 1) children returned
+ * by default.
+ */
+function getCategoryChildren($db, $parentId, $activeOnly = true) {
+    $sql = "SELECT id, name, slug, image FROM categories WHERE parent_id = ?";
+    if ($activeOnly) {
+        $sql .= " AND status = 1";
+    }
+    $sql .= " ORDER BY sort_order ASC, name ASC";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([(int) $parentId]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Get just the child category ids for a given parent id.
+ */
+function getCategoryChildIds($db, $parentId, $activeOnly = true) {
+    $children = getCategoryChildren($db, $parentId, $activeOnly);
+    return array_map(function ($c) { return (int) $c['id']; }, $children);
+}
+
+/**
+ * Given an array of category ids that are expected to be TOP-LEVEL
+ * (parent) category ids — e.g. coming from a filter checkbox list
+ * that only shows parent categories — expand each one to include
+ * itself PLUS all of its child category ids. Use this any time a
+ * "category_id IN (...)" product query needs to match products that
+ * were actually assigned to a child category (Small Pizza) even
+ * though the visitor only picked the parent (Pizza) in the filter.
+ */
+function expandCategoryIdsWithChildren($db, array $categoryIds, $activeOnly = true) {
+    $expanded = [];
+    foreach ($categoryIds as $id) {
+        $id = (int) $id;
+        if ($id <= 0) continue;
+        $expanded[$id] = true;
+        foreach (getCategoryChildIds($db, $id, $activeOnly) as $childId) {
+            $expanded[$childId] = true;
+        }
+    }
+    return array_keys($expanded);
+}
