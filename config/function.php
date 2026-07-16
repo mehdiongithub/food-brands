@@ -260,3 +260,77 @@ if (!function_exists('decryptId')) {
         return (int)$decrypted;
     }
 }
+
+if (!function_exists('convertToWebp')) {
+    /**
+     * Converts an uploaded image to WebP format.
+     *
+     * @param string $sourcePath Path to the source image file
+     * @param string $destinationPath Path where the WebP image should be saved
+     * @param int $quality WebP compression quality (0-100, default 80)
+     * @return bool True on success, false on failure
+     */
+    function convertToWebp($sourcePath, $destinationPath, $quality = 80) {
+        if (!file_exists($sourcePath)) {
+            return false;
+        }
+
+        // Get image info
+        $info = getimagesize($sourcePath);
+        if ($info === false) {
+            return false;
+        }
+
+        $mime = $info['mime'];
+        $image = null;
+
+        // Load image based on mime type
+        switch ($mime) {
+            case 'image/jpeg':
+            case 'image/jpg':
+                $image = @imagecreatefromjpeg($sourcePath);
+                break;
+            case 'image/png':
+                $image = @imagecreatefrompng($sourcePath);
+                if ($image) {
+                    imagealphablending($image, false);
+                    imagesavealpha($image, true);
+                }
+                break;
+            case 'image/gif':
+                $image = @imagecreatefromgif($sourcePath);
+                if ($image) {
+                    imagealphablending($image, false);
+                    imagesavealpha($image, true);
+                }
+                break;
+            case 'image/webp':
+                $image = @imagecreatefromwebp($sourcePath);
+                if ($image) {
+                    imagealphablending($image, false);
+                    imagesavealpha($image, true);
+                }
+                break;
+            case 'image/bmp':
+            case 'image/x-ms-bmp':
+                $image = @imagecreatefrombmp($sourcePath);
+                break;
+        }
+
+        if (!$image) {
+            return false;
+        }
+
+        // Ensure directory exists
+        $dir = dirname($destinationPath);
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        // Convert and save
+        $result = imagewebp($image, $destinationPath, $quality);
+        imagedestroy($image);
+
+        return $result;
+    }
+}

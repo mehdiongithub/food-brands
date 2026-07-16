@@ -171,14 +171,13 @@ if (isset($_FILES['images']) && is_array($_FILES['images']['name'])) {
         if (!in_array($mimeType, $allowedTypes, true)) { $errors['images'] = 'Images must be JPG, PNG, or WEBP.'; break; }
         if ($size > $maxSize) { $errors['images'] = 'Each image must be under 3MB.'; break; }
 
-        $ext = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'][$mimeType];
         $uploadDir = __DIR__ . '/../../assets/img/products/';
         if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
 
-        $filename = 'product_' . time() . '_' . bin2hex(random_bytes(4)) . '_' . $i . '.' . $ext;
+        $filename = 'product_' . time() . '_' . bin2hex(random_bytes(4)) . '_' . $i . '.webp';
         $destination = $uploadDir . $filename;
 
-        if (move_uploaded_file($tmpName, $destination)) {
+        if (convertToWebp($tmpName, $destination)) {
             $newImagePaths[] = 'assets/img/products/' . $filename;
         }
     }

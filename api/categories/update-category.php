@@ -127,21 +127,15 @@ if (isset($_FILES['image']) && $_FILES['image']['error'] !== UPLOAD_ERR_NO_FILE)
                 // Identical image re-uploaded — no actual change needed
                 $imageChanged = false;
             } else {
-                $ext = [
-                    'image/jpeg' => 'jpg',
-                    'image/png'  => 'png',
-                    'image/webp' => 'webp'
-                ][$mimeType];
-
                 $uploadDir = __DIR__ . '/../../assets/img/categories/';
                 if (!is_dir($uploadDir)) {
                     mkdir($uploadDir, 0755, true);
                 }
 
-                $filename = 'category_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+                $filename = 'category_' . time() . '_' . bin2hex(random_bytes(4)) . '.webp';
                 $destination = $uploadDir . $filename;
 
-                if (move_uploaded_file($file['tmp_name'], $destination)) {
+                if (convertToWebp($file['tmp_name'], $destination)) {
                     $newImagePath = 'assets/img/categories/' . $filename;
                     $imageChanged = true;
                 } else {

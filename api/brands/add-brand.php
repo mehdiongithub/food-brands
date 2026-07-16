@@ -109,16 +109,15 @@ function uploadSingleImage($fileKey, $subfolder, $maxSizeMB, &$errors) {
         return null;
     }
 
-    $ext = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'][$mimeType];
     $uploadDir = __DIR__ . '/../../assets/img/' . $subfolder . '/';
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0755, true);
     }
 
-    $filename = $subfolder . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+    $filename = $subfolder . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.webp';
     $destination = $uploadDir . $filename;
 
-    if (move_uploaded_file($file['tmp_name'], $destination)) {
+    if (convertToWebp($file['tmp_name'], $destination)) {
         return 'assets/img/' . $subfolder . '/' . $filename;
     }
 
@@ -165,16 +164,15 @@ if (isset($_FILES['gallery']) && is_array($_FILES['gallery']['name'])) {
                 break;
             }
 
-            $ext = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'][$mimeType];
             $uploadDir = __DIR__ . '/../../assets/img/brands/gallery/';
             if (!is_dir($uploadDir)) {
                 mkdir($uploadDir, 0755, true);
             }
 
-            $filename = 'gallery_' . time() . '_' . bin2hex(random_bytes(4)) . '_' . $i . '.' . $ext;
+            $filename = 'gallery_' . time() . '_' . bin2hex(random_bytes(4)) . '_' . $i . '.webp';
             $destination = $uploadDir . $filename;
 
-            if (move_uploaded_file($tmpName, $destination)) {
+            if (convertToWebp($tmpName, $destination)) {
                 $galleryPaths[] = 'assets/img/brands/gallery/' . $filename;
             }
         }
