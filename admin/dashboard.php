@@ -32,8 +32,10 @@ requireLogin();
 <div class="ps act">
 
   <div class="pg-head">
-    <h1 class="pg-title" id="dashGreeting">Good morning, Alex</h1>
+    <h1 class="pg-title" id="dashGreeting">Good morning, <?= htmlspecialchars(explode(' ', $_SESSION['user_name'] ?? 'User')[0]) ?></h1>
+    <?php if (currentUserRole() === 'admin' ){ ?>
     <p class="pg-desc" id="dashSummary">Loading your overview…</p>
+    <?php }?>
   </div>
 
   <!-- ===== TOP STAT CARDS ===== -->
@@ -179,7 +181,7 @@ function sbBadge(status){
 (function setGreeting(){
   var h = new Date().getHours();
   var g = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
-  document.getElementById("dashGreeting").textContent = g + ", Alex";
+  document.getElementById("dashGreeting").textContent = g + ", " + <?= json_encode(explode(' ', $_SESSION['user_name'] ?? 'User')[0]) ?>;
 })();
 
 /* ---------- 1. Top stat cards ----------
@@ -207,8 +209,10 @@ function loadStats(){
       setChg("statActiveBrandsChg",    d.active_brands_change,    d.active_brands_trend);
       setChg("statRegisteredUsersChg", d.registered_users_change, d.registered_users_trend);
       setChg("statActiveOffersChg",    d.active_offers_change,    d.active_offers_trend);
-
-      if (d.summary) document.getElementById("dashSummary").textContent = d.summary;
+      <?php if (currentUserRole() === 'admin' ){ ?>
+    
+        if (d.summary) document.getElementById("dashSummary").textContent = d.summary;
+      <?php } ?>
     })
     .catch(function(err){ console.error("stats load failed:", err); });
 }
