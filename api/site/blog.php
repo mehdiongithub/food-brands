@@ -195,7 +195,7 @@ try {
 
         // Schema.org JSON-LD for the article
         $settings = getSettings();
-        $siteName = $settings['site_name'] ?? 'FoodScope';
+        $siteName = $settings['site_name'] ?? 'MenuCrest';
         $schema = [
             '@context' => 'https://schema.org',
             '@type'    => 'BlogPosting',

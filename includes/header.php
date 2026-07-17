@@ -19,7 +19,7 @@ if ($currentFile === 'brand') {
     $navActive = $currentFile;
 }
 
- $siteName = $settings['site_name'] ?? 'FoodScope';
+ $siteName = $settings['site_name'] ?? 'MenuCrest';
  $logo = asset_url($settings['logo'] ?? '');
  $favicon = asset_url($settings['favicon'] ?? '');
  $pageTitle = $pageTitle ?? $siteName;
@@ -83,7 +83,7 @@ if (!empty($__adSettings['adsense_enabled']) && !empty($__adSettings['adsense_cl
     <?php if ($logo): ?>
         <img src="<?php echo $logo; ?>" alt="<?php echo clean($siteName); ?>" style="height:50px;margin-bottom:2rem;">
     <?php else: ?>
-        <div class="preloader-logo"><?php echo str_replace('Scope', '<span>Scope</span>', $siteName); ?></div>
+        <div class="preloader-logo"><?php echo str_replace('Crest', '<span>Crest</span>', $siteName); ?></div>
     <?php endif; ?>
     <div class="preloader-bar"><div class="preloader-bar-inner"></div></div>
     <div class="preloader-dots"><span></span><span></span><span></span></div>
@@ -99,7 +99,7 @@ if (!empty($__adSettings['adsense_enabled']) && !empty($__adSettings['adsense_cl
             <?php if ($logo): ?>
                 <img src="<?php echo $logo; ?>" alt="<?php echo clean($siteName); ?>" style="height:36px;">
             <?php else: ?>
-                <?php echo str_replace('Scope', '<span>Scope</span>', $siteName); ?>
+                <?php echo str_replace('Crest', '<span>Crest</span>', $siteName); ?>
             <?php endif; ?>
         </a>
 

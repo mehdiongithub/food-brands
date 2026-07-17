@@ -4,7 +4,7 @@ require_once __DIR__ . '/includes/functions.php';
 
 // Get site settings for SEO
  $settings = getSettings();
- $siteName = $settings['site_name'] ?? 'FoodScope';
+ $siteName = $settings['site_name'] ?? 'MenuCrest';
  $siteDescription = $settings['meta_description'] ?? 'Compare food menus, prices, and deals from world-famous brands across countries. Discover what\'s available near you.';
  $logo = $settings['logo'] ?? '';
 

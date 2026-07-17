@@ -184,7 +184,7 @@ try {
     // Get site settings for email
     $settings = getSettings();
     $adminEmail = $settings['email'] ?? '';
-    $siteName = $settings['site_name'] ?? 'FoodScope';
+    $siteName = $settings['site_name'] ?? 'MenuCrest';
 
     if (!empty($adminEmail) && !$isSpam) {
         $emailSent = sendContactNotification($adminEmail, $siteName, $cleanName, $cleanEmail, $cleanPhone, $cleanSubject, $cleanMessage, $messageId);

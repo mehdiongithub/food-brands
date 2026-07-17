@@ -5,7 +5,7 @@ if (!defined('BASE_PATH')) {
 require_once BASE_PATH . '/includes/functions.php';
 
  $settings = getSettings();
- $siteName = $settings['site_name'] ?? 'FoodScope';
+ $siteName = $settings['site_name'] ?? 'MenuCrest';
  $logo = asset_url($settings['logo'] ?? '');
  $copyright = $settings['copyright'] ?? '&copy; ' . date('Y') . ' ' . $siteName . '. All rights reserved.';
  $email = $settings['email'] ?? '';
@@ -85,7 +85,7 @@ require_once BASE_PATH . '/includes/functions.php';
                     <?php if ($logo): ?>
                         <img src="<?php echo $logo; ?>" alt="<?php echo clean($siteName); ?>" style="height:32px;margin-bottom:0.5rem;">
                     <?php else: ?>
-                        <?php echo str_replace('Scope', '<span>Scope</span>', $siteName); ?>
+                        <?php echo str_replace('Crest', '<span>Crest</span>', $siteName); ?>
                     <?php endif; ?>
                 </div>
                 <p class="footer-about">

@@ -173,7 +173,7 @@ function renderAdUnit($slug) {
  */
 function pageTitle($custom = '', $suffix = true) {
     $settings = getSettings();
-    $siteName = $settings['site_name'] ?? 'FoodScope';
+    $siteName = $settings['site_name'] ?? 'MenuCrest';
     if ($custom) {
         return $suffix ? $custom . ' — ' . $siteName : $custom;
     }

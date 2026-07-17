@@ -95,14 +95,14 @@
     // 2. THEME TOGGLE (Dark/Light)
     // ============================================================
     function initTheme() {
-        var savedTheme = localStorage.getItem('foodscope-theme') || 'light';
+        var savedTheme = localStorage.getItem('menucrest-theme') || 'light';
         applyTheme(savedTheme);
 
         $(document).on('click', '#theme-toggle', function () {
             var current = $('html').attr('data-theme');
             var next = current === 'dark' ? 'light' : 'dark';
             applyTheme(next);
-            localStorage.setItem('foodscope-theme', next);
+            localStorage.setItem('menucrest-theme', next);
         });
     }
 

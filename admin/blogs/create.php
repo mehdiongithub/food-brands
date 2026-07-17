@@ -14,7 +14,7 @@ if (currentUserRole() !== 'admin') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FoodScope — Add Blog</title>
+    <title>MenuCrest — Add Blog</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -178,7 +178,7 @@ if (currentUserRole() !== 'admin') {
                         <div class="row g-3">
                             <div class="col-md-12">
                                 <label class="fl">Meta Title</label>
-                                <input type="text" class="fi" name="meta_title" id="meta_title" maxlength="255" placeholder="e.g. 10 Best Fast Food Chains in 2026 | FoodScope">
+                                <input type="text" class="fi" name="meta_title" id="meta_title" maxlength="255" placeholder="e.g. 10 Best Fast Food Chains in 2026 | MenuCrest">
                                 <small style="color:var(--muted);font-size:.72rem;">
                                     <span id="metaTitleCount" class="seo-count">0</span>/60 recommended characters
                                 </small>

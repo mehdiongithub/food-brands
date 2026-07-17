@@ -28,7 +28,7 @@ try {
 
     if (!$settings) {
         $settings = [
-            'site_name' => 'FoodScope',
+            'site_name' => 'MenuCrest',
             'logo' => '',
             'favicon' => '',
             'email' => '',

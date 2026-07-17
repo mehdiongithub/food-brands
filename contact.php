@@ -4,7 +4,7 @@ require_once __DIR__ . '/includes/functions.php';
 
 // Get site settings for SEO
  $settings = getSettings();
- $siteName = $settings['site_name'] ?? 'FoodScope';
+ $siteName = $settings['site_name'] ?? 'MenuCrest';
  $siteEmail = $settings['email'] ?? '';
  $sitePhone = $settings['phone'] ?? '';
  $siteAddress = $settings['address'] ?? '';

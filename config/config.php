@@ -38,8 +38,8 @@ date_default_timezone_set('Asia/Karachi');
 define('MAX_UPLOAD_SIZE', 2 * 1024 * 1024);
 define('ALLOWED_IMAGE_TYPES', ['image/jpeg', 'image/png', 'image/webp']);
 
-define('SITE_NAME', 'FoodScope');
-define('ADMIN_EMAIL', 'admin@foodscope.com');
+define('SITE_NAME', 'MenuCrest');
+define('ADMIN_EMAIL', 'admin@menucrest.com');
 
 define('ENCRYPTION_KEY', 'change-this-to-a-long-random-secret-string-1234567890');
 

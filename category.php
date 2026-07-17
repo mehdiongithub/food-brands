@@ -15,7 +15,7 @@ if (empty($slug)) {
 
 // Get site settings for SEO
  $settings = getSettings();
- $siteName = $settings['site_name'] ?? 'FoodScope';
+ $siteName = $settings['site_name'] ?? 'MenuCrest';
 
 // Get category data from database for fast initial SEO render
  $db = getDB();

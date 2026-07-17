@@ -15,7 +15,7 @@ if (empty($slug)) {
 
 // Get site settings
  $settings = getSettings();
- $siteName = $settings['site_name'] ?? 'FoodScope';
+ $siteName = $settings['site_name'] ?? 'MenuCrest';
 
 // Default SEO (will be overwritten by API data)
  $brandName = ucfirst(str_replace('-', ' ', $slug));

@@ -1,5 +1,5 @@
 <?php
-$currentPath = $_SERVER['PHP_SELF']; // e.g. /foodscope/admin/users/index.php
+$currentPath = $_SERVER['PHP_SELF']; // e.g. /menucrest/admin/users/index.php
 $role = currentUserRole(); 
 
 function isActive($segment, $currentPath) {
@@ -8,7 +8,7 @@ function isActive($segment, $currentPath) {
 ?>
 <aside id="sidebar" role="navigation" aria-label="Admin navigation">
   <div class="sb-head">
-    <div class="sb-logo">Food<span>Scope</span></div>
+    <div class="sb-logo">Menu<span>Crest</span></div>
     <button class="sb-col-btn" onclick="toggleSB()" aria-label="Toggle sidebar"><i class="fas fa-chevron-left"></i></button>
   </div>
 

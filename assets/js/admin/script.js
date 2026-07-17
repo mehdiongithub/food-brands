@@ -1,14 +1,14 @@
 /* ===== DATA ===== */
 var DB={
   users:[
-    {id:1,name:'Alex Kumar',email:'alex@foodscope.com',role:'Super Admin',status:'active',joined:'2023-01-15',avatar:'https://picsum.photos/seed/u1/80/80.jpg'},
-    {id:2,name:'Sarah Mitchell',email:'sarah@foodscope.com',role:'Editor',status:'active',joined:'2023-03-22',avatar:'https://picsum.photos/seed/u2/80/80.jpg'},
-    {id:3,name:'James Rodriguez',email:'james@foodscope.com',role:'Moderator',status:'active',joined:'2023-05-10',avatar:'https://picsum.photos/seed/u3/80/80.jpg'},
-    {id:4,name:'Emily Chen',email:'emily@foodscope.com',role:'Editor',status:'draft',joined:'2023-07-01',avatar:'https://picsum.photos/seed/u4/80/80.jpg'},
-    {id:5,name:'Michael Thompson',email:'michael@foodscope.com',role:'Viewer',status:'active',joined:'2023-08-14',avatar:'https://picsum.photos/seed/u5/80/80.jpg'},
-    {id:6,name:'Aisha Patel',email:'aisha@foodscope.com',role:'Editor',status:'active',joined:'2023-09-20',avatar:'https://picsum.photos/seed/u6/80/80.jpg'},
-    {id:7,name:'David Kim',email:'david@foodscope.com',role:'Moderator',status:'draft',joined:'2023-11-05',avatar:'https://picsum.photos/seed/u7/80/80.jpg'},
-    {id:8,name:'Lisa Wang',email:'lisa@foodscope.com',role:'Viewer',status:'active',joined:'2024-01-12',avatar:'https://picsum.photos/seed/u8/80/80.jpg'}
+    {id:1,name:'Alex Kumar',email:'alex@menucrest.com',role:'Super Admin',status:'active',joined:'2023-01-15',avatar:'https://picsum.photos/seed/u1/80/80.jpg'},
+    {id:2,name:'Sarah Mitchell',email:'sarah@menucrest.com',role:'Editor',status:'active',joined:'2023-03-22',avatar:'https://picsum.photos/seed/u2/80/80.jpg'},
+    {id:3,name:'James Rodriguez',email:'james@menucrest.com',role:'Moderator',status:'active',joined:'2023-05-10',avatar:'https://picsum.photos/seed/u3/80/80.jpg'},
+    {id:4,name:'Emily Chen',email:'emily@menucrest.com',role:'Editor',status:'draft',joined:'2023-07-01',avatar:'https://picsum.photos/seed/u4/80/80.jpg'},
+    {id:5,name:'Michael Thompson',email:'michael@menucrest.com',role:'Viewer',status:'active',joined:'2023-08-14',avatar:'https://picsum.photos/seed/u5/80/80.jpg'},
+    {id:6,name:'Aisha Patel',email:'aisha@menucrest.com',role:'Editor',status:'active',joined:'2023-09-20',avatar:'https://picsum.photos/seed/u6/80/80.jpg'},
+    {id:7,name:'David Kim',email:'david@menucrest.com',role:'Moderator',status:'draft',joined:'2023-11-05',avatar:'https://picsum.photos/seed/u7/80/80.jpg'},
+    {id:8,name:'Lisa Wang',email:'lisa@menucrest.com',role:'Viewer',status:'active',joined:'2024-01-12',avatar:'https://picsum.photos/seed/u8/80/80.jpg'}
   ],
   countries:[
     {id:'us',name:'United States',flag:'\u{1F1FA}\u{1F1F8}',currency:'USD',symbol:'$',brands:8,products:36,status:'active'},
@@ -75,18 +75,18 @@ var DB={
     {id:4,title:'Pizza Hut vs Domino\'s: The Ultimate Comparison',category:'Comparisons',image:'https://picsum.photos/seed/blog4/200/200.jpg',date:'2025-01-05',status:'active'}
   ],
   testimonials:[
-    {id:1,name:'Sarah Mitchell',role:'Food Blogger',avatar:'https://picsum.photos/seed/avatar1/80/80.jpg',rating:5,text:'FoodScope has completely changed how I compare prices.',status:'active'},
+    {id:1,name:'Sarah Mitchell',role:'Food Blogger',avatar:'https://picsum.photos/seed/avatar1/80/80.jpg',rating:5,text:'MenuCrest has completely changed how I compare prices.',status:'active'},
     {id:2,name:'James Rodriguez',role:'Travel Enthusiast',avatar:'https://picsum.photos/seed/avatar2/80/80.jpg',rating:5,text:'The country switching feature is brilliant.',status:'active'},
     {id:3,name:'Emily Chen',role:'Digital Nomad',avatar:'https://picsum.photos/seed/avatar3/80/80.jpg',rating:4,text:'The detail on each product is impressive.',status:'active'},
     {id:4,name:'Michael Thompson',role:'Analyst',avatar:'https://picsum.photos/seed/avatar4/80/80.jpg',rating:5,text:'Invaluable tool for market research.',status:'draft'},
     {id:5,name:'Aisha Patel',role:'Student',avatar:'https://picsum.photos/seed/avatar5/80/80.jpg',rating:4,text:'The offers section saves me money every week!',status:'active'}
   ],
   faqs:[
-    {id:1,question:'How does FoodScope get its pricing data?',answer:'Our team collects data from brand websites and verified submissions.',status:'active'},
+    {id:1,question:'How does MenuCrest get its pricing data?',answer:'Our team collects data from brand websites and verified submissions.',status:'active'},
     {id:2,question:'Can I compare prices across different countries?',answer:'Yes, use the country selector to switch and compare.',status:'active'},
     {id:3,question:'How often are prices updated?',answer:'Weekly. Prices may vary by location.',status:'active'},
     {id:4,question:'Why are some products not available in my country?',answer:'Brands tailor menus to local tastes and regulations.',status:'active'},
-    {id:5,question:'Is FoodScope free to use?',answer:'Yes, completely free for all users.',status:'draft'},
+    {id:5,question:'Is MenuCrest free to use?',answer:'Yes, completely free for all users.',status:'draft'},
     {id:6,question:'How can I report incorrect pricing?',answer:'Use our Contact page with product details.',status:'active'}
   ],
   notifications:[
@@ -202,7 +202,7 @@ function rFaqs(){var it=fItems(DB.faqs,getSF('faqs')),p=pgItems(it),r='';var all
 function rSettings(){
   return'<div class="ps act"><div class="pg-head"><h1 class="pg-title">Settings</h1><p class="pg-desc">Configure platform preferences and system options.</p></div>'+
   '<div class="row g-4"><div class="col-lg-8">'+
-    sSec('General',sR('Site Name','FoodScope','Displayed across the platform')+sR('Site URL','https://foodscope.com','Primary domain')+sR('Admin Email','admin@foodscope.com','Notification address')+sR('Default Country','United States','Pre-selected for visitors'))+
+    sSec('General',sR('Site Name','MenuCrest','Displayed across the platform')+sR('Site URL','https://menucrest.com','Primary domain')+sR('Admin Email','admin@menucrest.com','Notification address')+sR('Default Country','United States','Pre-selected for visitors'))+
     sSec('Appearance',sR('Primary Color','#E85D04','Main accent color')+sR('Items Per Page','12','List view items')+sR('Date Format','MM/DD/YYYY','Display format for dates'))+
     sSec('Notifications',sT('Email Notifications','Receive email alerts for new registrations')+sT('Order Alerts','Get notified on new orders')+sT('Weekly Report','Weekly summary of platform activity')+sT('Price Change Alerts','Notifications when prices update'))+
     sSec('API & Integrations',sR('API Key','fs_live_xxxxxxxxxxxxxxxx','External integrations')+sT('Enable REST API','Allow third-party access')+sT('Webhooks','Real-time event notifications'))+

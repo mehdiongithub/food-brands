@@ -7,7 +7,7 @@ http_response_code(404);
 
 // Get site settings for SEO
  $settings = getSettings();
- $siteName = $settings['site_name'] ?? 'FoodScope';
+ $siteName = $settings['site_name'] ?? 'MenuCrest';
 
 // Page SEO
  $pageTitle = pageTitle('Page Not Found');

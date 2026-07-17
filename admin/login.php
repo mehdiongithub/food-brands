@@ -3,16 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FoodScope — Sign In</title>
-<meta name="description" content="Sign in to FoodScope to manage food menus, compare prices, and discover deals from world-famous brands.">
-<meta property="og:title" content="FoodScope — Sign In">
+<title>MenuCrest — Sign In</title>
+<meta name="description" content="Sign in to MenuCrest to manage food menus, compare prices, and discover deals from world-famous brands.">
+<meta property="og:title" content="MenuCrest — Sign In">
 <meta property="og:description" content="Access your global food menu and price comparison platform.">
 <meta property="og:type" content="website">
-<link rel="canonical" href="https://foodscope.com/login">
+<link rel="canonical" href="https://menucrest.com/login">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800;900&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebPage","name":"FoodScope Login","url":"https://foodscope.com/login","isPartOf":{"@type":"WebSite","name":"FoodScope","url":"https://foodscope.com"}}
+{"@context":"https://schema.org","@type":"WebPage","name":"MenuCrest Login","url":"https://menucrest.com/login","isPartOf":{"@type":"WebSite","name":"MenuCrest","url":"https://menucrest.com"}}
 </script>
 <style>
 :root{
@@ -238,9 +238,9 @@ img{max-width:100%;display:block}
 
     <!-- LOGIN PANEL -->
     <div class="lc-body panel" id="loginPanel">
-      <div class="lc-logo" onclick="window.location.href='index.html'" tabindex="0" role="button" aria-label="FoodScope Home">
+      <div class="lc-logo" onclick="window.location.href='index.html'" tabindex="0" role="button" aria-label="MenuCrest Home">
         <div class="lc-logo-icon"><i class="fas fa-utensils"></i></div>
-        <div class="lc-logo-text">Food<span>Scope</span></div>
+        <div class="lc-logo-text">Menu<span>Crest</span></div>
       </div>
 
       <h1 class="lc-heading">Welcome back</h1>

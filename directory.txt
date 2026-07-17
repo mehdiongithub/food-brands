@@ -1,4 +1,4 @@
-foodscope/
+menucrest/
 │
 ├── admin/
 │   ├── dashboard.php

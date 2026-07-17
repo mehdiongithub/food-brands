@@ -530,7 +530,7 @@
     // ============================================================
     function initShareButtons(offer, brand) {
         var pageUrl = window.location.href;
-        var pageTitle = offer.title + ' — ' + (brand ? brand.name : 'FoodScope');
+        var pageTitle = offer.title + ' — ' + (brand ? brand.name : 'MenuCrest');
 
         $(document).on('click', '.pd-share-copy', function () {
             if (window.copyToClipboard) {
